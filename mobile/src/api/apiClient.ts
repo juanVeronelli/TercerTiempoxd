@@ -1,0 +1,37 @@
+import axios from "axios";
+import Constants from "expo-constants";
+import * as SecureStore from "expo-secure-store";
+
+function normalizeApiBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/+$/, "");
+  return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
+}
+
+const rawBaseUrl =
+  (typeof Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL === "string" &&
+    Constants.expoConfig.extra.EXPO_PUBLIC_API_URL) ||
+  process.env.EXPO_PUBLIC_API_URL ||
+  "http://192.168.0.25:3000";
+
+const apiBaseUrl = normalizeApiBaseUrl(rawBaseUrl);
+
+const apiClient = axios.create({
+  baseURL: apiBaseUrl,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+apiClient.interceptors.request.use(async (config) => {
+  if (config.headers?.Authorization) {
+    return config;
+  }
+  const token = await SecureStore.getItemAsync("userToken");
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export default apiClient;

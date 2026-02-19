@@ -1,0 +1,96 @@
+# ============================================
+# Dependencias (muy pesadas; EAS instala en la nube)
+# ============================================
+node_modules/
+
+# ============================================
+# Expo / Metro (caché y builds locales)
+# ============================================
+.expo/
+dist/
+web-build/
+.metro-health-check*
+expo-env.d.ts
+
+# ============================================
+# Carpetas nativas generadas (EAS las regenera)
+# ============================================
+android/
+ios/
+
+# ============================================
+# Git y control de versiones
+# ============================================
+.git/
+.gitignore
+.gitattributes
+
+# ============================================
+# Logs, caché y temporales
+# ============================================
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.npm
+.yarn/
+.cache/
+*.tsbuildinfo
+.nyc_output/
+coverage/
+
+# ============================================
+# IDE y sistema
+# ============================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+*.swo
+
+# ============================================
+# Env y secretos (usar EAS Secrets en su lugar)
+# ============================================
+.env
+.env.*
+!.env.example
+
+# ============================================
+# Tests (no necesarios para el build de producción)
+# ============================================
+__tests__/
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+jest.setup.js
+coverage/
+
+# ============================================
+# Artefactos de build (EAS genera los suyos)
+# ============================================
+*.apk
+*.aab
+*.ipa
+*.orig.*
+
+# ============================================
+# Certificados y keys (nunca subir)
+# ============================================
+*.pem
+*.p8
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+secrets/
+credentials/
+
+# ============================================
+# Si ejecutás EAS desde la raíz del monorepo:
+# asegurate de correr desde mobile/ (cd mobile && eas build)
+# o configurá en eas.json "root": "mobile" para no subir Backend.
+# ============================================

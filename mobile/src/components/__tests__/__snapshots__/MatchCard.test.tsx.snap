@@ -1,0 +1,364 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`MatchCard (NextMatchCard) coincide con el snapshot del diseño (evita regresiones visuales) 1`] = `
+<View
+  style={
+    {
+      "backgroundColor": "#1F2937",
+      "borderColor": "rgba(255,255,255,0.05)",
+      "borderRadius": 20,
+      "borderWidth": 1,
+      "elevation": 6,
+      "marginBottom": 20,
+      "padding": 16,
+      "shadowColor": "#000",
+      "shadowOffset": {
+        "height": 4,
+        "width": 0,
+      },
+      "shadowOpacity": 0.3,
+      "shadowRadius": 8,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "borderBottomColor": "rgba(255,255,255,0.05)",
+        "borderBottomWidth": 1,
+        "flexDirection": "row",
+        "justifyContent": "space-between",
+        "marginBottom": 16,
+        "paddingBottom": 12,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "gap": 8,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "backgroundColor": "rgba(255, 215, 0, 0.1)",
+            "borderColor": "rgba(255, 215, 0, 0.3)",
+            "borderRadius": 8,
+            "borderWidth": 1,
+            "flexDirection": "row",
+            "paddingHorizontal": 8,
+            "paddingVertical": 4,
+          }
+        }
+      >
+        <Text
+          allowFontScaling={false}
+          selectable={false}
+          style={
+            [
+              {
+                "color": "#FFD700",
+                "fontSize": 10,
+              },
+              {
+                "marginRight": 4,
+              },
+              {
+                "fontFamily": "ionicons",
+                "fontStyle": "normal",
+                "fontWeight": "normal",
+              },
+              {},
+            ]
+          }
+        >
+          
+        </Text>
+        <Text
+          style={
+            {
+              "color": "#FFD700",
+              "fontSize": 10,
+              "fontWeight": "900",
+              "letterSpacing": 0.5,
+            }
+          }
+        >
+          PRÓXIMO
+        </Text>
+      </View>
+      <View
+        style={
+          [
+            {
+              "borderRadius": 8,
+              "borderWidth": 1,
+              "paddingHorizontal": 8,
+              "paddingVertical": 4,
+            },
+            {
+              "backgroundColor": "rgba(59, 130, 246, 0.2)",
+              "borderColor": "rgba(59, 130, 246, 0.5)",
+            },
+          ]
+        }
+      >
+        <Text
+          style={
+            [
+              {
+                "fontSize": 10,
+                "fontWeight": "900",
+                "letterSpacing": 0.5,
+                "textTransform": "uppercase",
+              },
+              {
+                "color": "#60A5FA",
+              },
+            ]
+          }
+        >
+          ABIERTO
+        </Text>
+      </View>
+    </View>
+  </View>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+        "marginBottom": 16,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "#111827",
+          "borderColor": "rgba(255,255,255,0.05)",
+          "borderRadius": 14,
+          "borderWidth": 1,
+          "marginRight": 15,
+          "minWidth": 60,
+          "paddingHorizontal": 14,
+          "paddingVertical": 10,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "white",
+            "fontSize": 22,
+            "fontWeight": "bold",
+          }
+        }
+      >
+        5
+      </Text>
+      <Text
+        style={
+          {
+            "color": "#9CA3AF",
+            "fontSize": 11,
+            "fontWeight": "800",
+            "textTransform": "uppercase",
+          }
+        }
+      >
+        MAR
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "flex": 1,
+          "justifyContent": "center",
+        }
+      }
+    >
+      <Text
+        numberOfLines={1}
+        style={
+          {
+            "color": "white",
+            "fontSize": 16,
+            "fontWeight": "bold",
+            "marginBottom": 4,
+          }
+        }
+      >
+        Cancha Fecha 5
+      </Text>
+      <View
+        style={
+          {
+            "alignItems": "center",
+            "flexDirection": "row",
+            "marginBottom": 4,
+          }
+        }
+      >
+        <Text
+          allowFontScaling={false}
+          selectable={false}
+          style={
+            [
+              {
+                "color": "#9CA3AF",
+                "fontSize": 14,
+              },
+              {
+                "marginRight": 4,
+              },
+              {
+                "fontFamily": "ionicons",
+                "fontStyle": "normal",
+                "fontWeight": "normal",
+              },
+              {},
+            ]
+          }
+        >
+          
+        </Text>
+        <Text
+          style={
+            {
+              "color": "#D1D5DB",
+              "fontSize": 13,
+              "fontWeight": "500",
+              "textTransform": "capitalize",
+            }
+          }
+        >
+          miércoles 5 de marzo
+           - 
+          15:00
+           hs
+        </Text>
+      </View>
+      <Text
+        style={
+          {
+            "color": "#60A5FA",
+            "fontSize": 14,
+            "fontWeight": "800",
+          }
+        }
+      >
+        $
+        1500
+         
+        <Text
+          style={
+            {
+              "color": "#6B7280",
+              "fontSize": 11,
+              "fontWeight": "400",
+            }
+          }
+        >
+          / Jugador
+        </Text>
+      </Text>
+    </View>
+  </View>
+  <View
+    style={
+      {
+        "paddingTop": 4,
+      }
+    }
+  >
+    <View
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "alignItems": "center",
+          "backgroundColor": "#2563EB",
+          "borderRadius": 12,
+          "elevation": 4,
+          "flexDirection": "row",
+          "justifyContent": "center",
+          "opacity": 1,
+          "paddingVertical": 12,
+          "shadowColor": "#2563EB",
+          "shadowOpacity": 0.4,
+          "shadowRadius": 10,
+        }
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "white",
+            "fontSize": 13,
+            "fontWeight": "bold",
+            "letterSpacing": 0.5,
+          }
+        }
+      >
+        CONFIRMAR ASISTENCIA
+      </Text>
+      <Text
+        allowFontScaling={false}
+        selectable={false}
+        style={
+          [
+            {
+              "color": "white",
+              "fontSize": 20,
+            },
+            {
+              "marginLeft": 8,
+            },
+            {
+              "fontFamily": "ionicons",
+              "fontStyle": "normal",
+              "fontWeight": "normal",
+            },
+            {},
+          ]
+        }
+      >
+        
+      </Text>
+    </View>
+  </View>
+</View>
+`;
