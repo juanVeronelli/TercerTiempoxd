@@ -1,0 +1,435 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------
+// USUARIOS Y PERFILES
+// ---------------------------------------------------------
+model users {
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique @db.VarChar(255)
+  password_hash     String
+  username          String    @unique @db.VarChar(50)
+  full_name         String?   @db.VarChar(100)
+  bio               String?
+  profile_photo_url String?
+  banner_url        String?
+  main_position     String?   @db.VarChar(10) // GK, DEF, MID, FWD
+  plan_type         String?   @default("FREE") @db.VarChar(10)
+  is_active         Boolean?  @default(true)
+  created_at        DateTime? @default(now()) @db.Timestamp(6)
+  accent_color      String?   @default("#2563EB")
+  avatar_frame      String?   @default("simple")
+  showcase_items    Json?
+
+  // Seguridad / Marketing
+  isVerified          Boolean   @default(false)
+  verificationCode    String?   @db.VarChar(10)
+  resetPasswordToken  String?   @db.VarChar(255)
+  resetPasswordExpires DateTime?
+  acceptsMarketing    Boolean   @default(false)
+
+  // Push notifications (Expo)
+  expo_push_token     String?   @db.VarChar(255)
+  notifications_enabled Boolean @default(true)
+
+  // Relaciones existentes
+  leagues_owned        leagues[]
+  matches_administered matches[]
+  matches_as_mvp       matches[] @relation("match_mvp")
+  league_members       league_members[]
+  match_players        match_players[]
+  
+  // Votos
+  votes_cast           match_votes[] @relation("match_votes_voter_idTousers")
+  votes_received       match_votes[] @relation("match_votes_target_idTousers")
+  
+  // Extras
+  predictions          predictions[]
+  user_predictions     user_predictions[]
+  honors               honors[]
+  notifications        notifications[]
+  
+  // Cache de estadísticas
+  friend_stats_opponent friend_stats_cache[] @relation("friend_stats_cache_opponent_idTousers")
+  friend_stats_user     friend_stats_cache[] @relation("friend_stats_cache_user_idTousers")
+
+  // --- NUEVAS RELACIONES PARA DUELOS ---
+  duels_as_challenger   duels[] @relation("duel_challenger")
+  duels_as_rival        duels[] @relation("duel_rival")
+  duels_won             duels[] @relation("duel_winner")
+
+  // --- LOGROS Y RECOMPENSAS ---
+  user_achievements user_achievements[]
+  user_cosmetics    user_cosmetics[]
+}
+
+// ---------------------------------------------------------
+// LIGAS Y MIEMBROS (ESTADÍSTICAS HISTÓRICAS)
+// ---------------------------------------------------------
+model leagues {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(100)
+  description String?
+  invite_code String    @unique @db.VarChar(10)
+  admin_id    String?   @db.Uuid
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  admin              users?               @relation(fields: [admin_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  league_members     league_members[]
+  matches            matches[]
+  match_votes        match_votes[]
+  honors             honors[]
+  friend_stats_cache friend_stats_cache[]
+  prediction_groups  prediction_groups[]
+}
+
+model league_members {
+  league_id  String    @db.Uuid
+  user_id    String    @db.Uuid
+  joined_at  DateTime? @default(now()) @db.Timestamp(6)
+  is_banned  Boolean?  @default(false)
+  role       String    @default("MEMBER")
+
+  // --- ESTADÍSTICAS HISTÓRICAS ---
+  matches_played Int?      @default(0)
+  
+  // Promedios acumulados
+  league_overall Decimal?  @default(5.0) @db.Decimal(3, 1)
+  avg_technique  Decimal?  @default(5.0) @db.Decimal(3, 1)
+  avg_physical   Decimal?  @default(5.0) @db.Decimal(3, 1)
+  avg_pace       Decimal?  @default(5.0) @db.Decimal(3, 1)
+  avg_defense    Decimal?  @default(5.0) @db.Decimal(3, 1)
+  avg_attack     Decimal?  @default(5.0) @db.Decimal(3, 1)
+
+  // --- MEDALLERO (Contadores) ---
+  honors_mvp        Int?    @default(0)
+  honors_tronco     Int?    @default(0)
+  honors_fantasma   Int?    @default(0)
+  honors_prediction Int?    @default(0)
+
+  // --- NUEVO CONTADOR PARA DUELOS ---
+  honors_duel       Int?    @default(0)
+
+  // Relaciones
+  leagues    leagues   @relation(fields: [league_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([league_id, user_id])
+  @@index([league_id])
+}
+
+// ---------------------------------------------------------
+// PARTIDOS Y JUGADORES
+// ---------------------------------------------------------
+model matches {
+  id               String    @id @default(uuid()) @db.Uuid
+  league_id        String?   @db.Uuid
+  admin_id         String?   @db.Uuid
+  mvp_id           String?   @db.Uuid
+  
+  date_time        DateTime  @db.Timestamp(6)
+  location_name    String?   @db.VarChar(255)
+  price_per_player Decimal?  @db.Decimal(10, 2)
+  status           String?   @default("OPEN") @db.VarChar(20)
+  
+  team_a_score     Int?      @default(0)
+  team_b_score     Int?      @default(0)
+  
+  ai_journal       String?
+  created_at       DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  leagues       leagues?        @relation(fields: [league_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         users?          @relation(fields: [admin_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  mvp_user      users?          @relation("match_mvp", fields: [mvp_id], references: [id])
+  
+  match_players match_players[]
+  match_votes   match_votes[]
+  honors        honors[]
+  predictions   predictions[]
+  prediction_groups prediction_groups[]
+
+  // --- RELACIÓN CON DUELOS ---
+  duels         duels[]
+}
+
+model match_players {
+  match_id          String    @db.Uuid
+  user_id           String    @db.Uuid
+  team              String?   @default("UNASSIGNED") @db.VarChar(10)
+  has_confirmed     Boolean?  @default(false)
+  self_vote_overall Decimal?  @db.Decimal(3, 1)
+
+  // --- PUNTAJES DE ESTE PARTIDO ---
+  match_rating    Decimal?  @db.Decimal(3, 1)
+  match_pace      Decimal?  @db.Decimal(3, 1)
+  match_defense   Decimal?  @db.Decimal(3, 1)
+  match_technique Decimal?  @db.Decimal(3, 1)
+  match_physical  Decimal?  @db.Decimal(3, 1)
+  match_attack    Decimal?  @db.Decimal(3, 1)
+
+  // --- PRODE: puntos de predicciones en esta fecha (resueltos al cerrar partido) ---
+  prediction_points Int?   @default(0)
+
+  // Relaciones
+  matches    matches   @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([match_id, user_id])
+  @@index([match_id])
+}
+
+model match_votes {
+  id        String    @id @default(uuid()) @db.Uuid
+  match_id  String?   @db.Uuid
+  league_id String?   @db.Uuid
+  voter_id  String?   @db.Uuid
+  target_id String?   @db.Uuid
+
+  overall   Decimal   @db.Decimal(3, 1)
+  technique Decimal?  @db.Decimal(3, 1)
+  physical  Decimal?  @db.Decimal(3, 1)
+  pace      Decimal?  @db.Decimal(3, 1)
+  defense   Decimal?  @db.Decimal(3, 1)
+  attack    Decimal?  @db.Decimal(3, 1)
+  
+  comment   String?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  matches     matches?  @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  leagues     leagues?  @relation(fields: [league_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  target_user users?    @relation("match_votes_target_idTousers", fields: [target_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  voter_user  users?    @relation("match_votes_voter_idTousers", fields: [voter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([match_id])
+  @@index([target_id])
+}
+
+// ---------------------------------------------------------
+// EXTRAS: DUELOS, PREDICCIONES, HONORES
+// ---------------------------------------------------------
+
+model duels {
+  id            String    @id @default(uuid()) @db.Uuid
+  match_id      String    @db.Uuid
+  
+  challenger_id String    @db.Uuid
+  rival_id      String    @db.Uuid
+  winner_id     String?   @db.Uuid
+  
+  status        String?   @default("PENDING") @db.VarChar(20) // PENDING, COMPLETED, DRAW
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+
+  // Relaciones
+  matches       matches   @relation(fields: [match_id], references: [id], onDelete: Cascade)
+  
+  challenger    users     @relation("duel_challenger", fields: [challenger_id], references: [id], onDelete: Cascade)
+  rival         users     @relation("duel_rival", fields: [rival_id], references: [id], onDelete: Cascade)
+  winner        users?    @relation("duel_winner", fields: [winner_id], references: [id])
+
+  @@index([match_id])
+  @@index([winner_id])
+}
+
+model predictions {
+  id               String    @id @default(uuid()) @db.Uuid
+  user_id          String?   @db.Uuid
+  match_id         String?   @db.Uuid
+  predicted_winner String?   @db.VarChar(10)
+  is_correct       Boolean?
+
+  matches          matches?  @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users?    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ---------------------------------------------------------
+// PRODE: Grupos, Preguntas, Opciones y Respuestas de Usuario
+// ---------------------------------------------------------
+// Tipo: MATCH (por partido), MONTHLY (mensual), SEASON (temporada)
+model prediction_groups {
+  id                  String    @id @default(uuid()) @db.Uuid
+  league_id           String    @db.Uuid
+  match_id            String?   @db.Uuid
+  type                String    @db.VarChar(20)   // MATCH | MONTHLY | SEASON
+  period_key          String?   @db.VarChar(20)  // ej: "2025-02" mensual, "2024-2025" temporada
+  closes_at           DateTime  @db.Timestamp(6)
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  display_question_ids Json?   // UUID[] de las 10 preguntas fijas para este partido (4-4-2)
+
+  leagues             leagues              @relation(fields: [league_id], references: [id], onDelete: Cascade)
+  matches             matches?             @relation(fields: [match_id], references: [id], onDelete: Cascade)
+  prediction_questions prediction_questions[]
+}
+
+model prediction_questions {
+  id            String   @id @default(uuid()) @db.Uuid
+  group_id      String   @db.Uuid
+  question_key  String   @db.VarChar(50)  // MVP, TRONCO, DUEL_WINNER, RESULT, etc.
+  label         String   @db.VarChar(255)
+  points_reward Int      @default(1)      // más difícil = más puntos
+  difficulty    String?  @db.VarChar(10)  // EASY | MEDIUM | HARD
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+
+  prediction_groups prediction_groups @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  prediction_options prediction_options[]
+  user_predictions   user_predictions[]
+}
+
+model prediction_options {
+  id          String   @id @default(uuid()) @db.Uuid
+  question_id String   @db.Uuid
+  option_key  String   @db.VarChar(100)  // user_id para MVP/TRONCO/DUEL, "A"|"B"|"DRAW" para RESULT
+  label       String   @db.VarChar(255)
+  is_correct  Boolean? @db.Boolean       // se rellena al resolver
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  prediction_questions prediction_questions @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  user_predictions    user_predictions[]
+}
+
+model user_predictions {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  question_id String @db.Uuid
+  option_id  String   @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  users              users               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  prediction_questions prediction_questions @relation(fields: [question_id], references: [id], onDelete: Cascade)
+  prediction_options  prediction_options  @relation(fields: [option_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, question_id])
+  @@index([user_id])
+  @@index([question_id])
+}
+
+model honors {
+  id         String    @id @default(uuid()) @db.Uuid
+  match_id   String?   @db.Uuid
+  user_id    String?   @db.Uuid
+  league_id  String?   @db.Uuid
+  honor_type String?   @db.VarChar(20) // 'MVP', 'TRONCO', 'CRYSTAL_BALL', 'DUEL_WINNER', 'ORACLE'
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  leagues    leagues?  @relation(fields: [league_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  matches    matches?  @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([match_id])
+  @@index([league_id])
+}
+
+// ---------------------------------------------------------
+// SISTEMA DE NOTIFICACIONES UNIFICADO (Push + In-App)
+// ---------------------------------------------------------
+enum NotificationType {
+  MATCH_SUMMON           // Convocado
+  MATCH_UNSUMMON         // Desconvocado
+  MATCH_CANCELLED        // Partido cancelado
+  MATCH_FINISHED_VOTE    // Partido terminó, hora de votar
+  VOTING_CLOSED_RESULTS  // Resultados disponibles
+  PREDICTIONS_OPEN       // Ya se puede predecir
+  PREDICTION_DEADLINE    // Cierra pronto y no votaste
+  DUEL_PARTICIPANT       // Estás en el duelo
+  DUEL_RESULT_WIN        // Ganaste duelo
+  DUEL_RESULT_LOSS       // Perdiste duelo
+  AWARD_MVP
+  AWARD_GHOST            // Fantasma
+  AWARD_TRUNK            // Tronco
+  AWARD_ORACLE
+  RANKING_OVERTAKE       // Superaste a alguien
+  REMINDER_VOTE          // Solo faltas tú por votar
+  REMINDER_CONFIRM       // Solo faltas tú por confirmar
+  ACHIEVEMENT_UNLOCKED   // Desbloqueaste una misión/logro
+}
+
+model notifications {
+  id         String           @id @default(uuid()) @db.Uuid
+  user_id    String           @db.Uuid
+  type       NotificationType
+  title      String           @db.VarChar(255)
+  body       String           @db.Text
+  data       Json?            // matchId, duelId, leagueId, etc. para navegación
+  is_read    Boolean          @default(false)
+  created_at DateTime         @default(now()) @db.Timestamp(6)
+
+  user       users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id])
+  @@index([user_id, is_read])
+  @@index([created_at])
+}
+
+model friend_stats_cache {
+  user_id        String  @db.Uuid
+  opponent_id    String  @db.Uuid
+  league_id      String  @db.Uuid
+  matches_played Int?    @default(0)
+  wins           Int?    @default(0)
+  
+  leagues        leagues @relation(fields: [league_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  opponent       users   @relation("friend_stats_cache_opponent_idTousers", fields: [opponent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user           users   @relation("friend_stats_cache_user_idTousers", fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, opponent_id, league_id])
+}
+
+// ---------------------------------------------------------
+// LOGROS Y RECOMPENSAS (Achievements System)
+// ---------------------------------------------------------
+model achievements {
+  id               String   @id @default(uuid()) @db.Uuid
+  title            String   @db.VarChar(100)
+  description      String   @db.Text
+  category         String   @db.VarChar(20)   // MATCH, STREAK, SOCIAL, RANKING
+  condition_type   String   @db.VarChar(50)   // WIN_STREAK, MVP_COUNT, etc.
+  condition_value  Decimal  @db.Decimal(10, 2)
+  reward_type      String   @db.VarChar(20)   // STAT_BOOST, COSMETIC
+  reward_value     Json     // {"defense": 1} o {"cosmetic_key": "gold_frame"}
+  is_pro_exclusive Boolean  @default(false)
+  sort_order       Int      @default(0)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @updatedAt @db.Timestamptz(6)
+
+  user_achievements user_achievements[]
+  user_cosmetics    user_cosmetics[]
+}
+
+model user_achievements {
+  id               String    @id @default(uuid()) @db.Uuid
+  user_id          String    @db.Uuid
+  achievement_id   String    @db.Uuid
+  current_progress Decimal   @default(0) @db.Decimal(10, 2)
+  is_completed     Boolean   @default(false)
+  claimed_at       DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @updatedAt @db.Timestamptz(6)
+
+  users        users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  achievements achievements @relation(fields: [achievement_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, achievement_id])
+  @@index([user_id])
+  @@index([achievement_id])
+}
+
+model user_cosmetics {
+  id                    String    @id @default(uuid()) @db.Uuid
+  user_id               String    @db.Uuid
+  cosmetic_key          String    @db.VarChar(50)   // gold_frame, silver_banner, etc.
+  cosmetic_type         String    @default("FRAME") @db.VarChar(20)  // FRAME, BANNER, BADGE
+  source_achievement_id String?   @db.Uuid
+  unlocked_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  users        users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  achievements achievements? @relation(fields: [source_achievement_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([user_id, cosmetic_key])
+  @@index([user_id])
+}

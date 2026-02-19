@@ -1,0 +1,222 @@
+# E2E: Registro → Verificación (Magic OTP) → Home → Crear Partido
+# Requisito: Backend con Magic OTP para e2e@test.com (código 000000).
+#
+# IMPORTANTE - Cómo ejecutar con Expo Go:
+# 1. En el celular: abre Expo Go, escanea el QR de "npx expo start", deja que cargue tu app hasta la pantalla de LOGIN.
+# 2. Con la app ya abierta en la pantalla de login, ejecuta: maestro test .\.maestro\flow.yaml
+# (No usamos launchApp porque en Expo Go eso abre la home de Expo, no tu app.)
+#
+appId: host.exp.exponent
+---
+# Esperar a que se vea la pantalla de login (tu app ya debe estar abierta en Expo Go)
+- extendedWaitUntil:
+    visible: "Iniciar Sesión"
+    timeout: 60000
+
+# ----- 1. Ir a Registro -----
+- tapOn:
+    id: "e2e-crear-cuenta"
+
+# ----- 2. Formulario de Registro (tap por testID para enfocar cada campo antes de escribir) -----
+- tapOn:
+    id: "e2e-register-fullName"
+- inputText: "E2E User"
+- tapOn:
+    id: "e2e-register-username"
+- inputText: "e2etest"
+# Scroll para traer el campo Email a la vista (teclado o formulario largo)
+- scrollUntilVisible:
+    element:
+      id: "e2e-register-email"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "e2e-register-email"
+- inputText: "e2e@test.com"
+# Scroll para traer CONTRASEÑA y CONFIRMAR (teclado puede tapar)
+- scrollUntilVisible:
+    element:
+      id: "e2e-register-password"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "e2e-register-password"
+- inputText: "password123"
+- scrollUntilVisible:
+    element:
+      id: "e2e-register-confirmPassword"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "e2e-register-confirmPassword"
+- inputText: "password123"
+# Scroll para traer el checkbox de privacidad a la vista
+- scrollUntilVisible:
+    element:
+      id: "e2e-register-accept-privacy"
+    direction: DOWN
+    timeout: 5000
+# Ocultar teclado para que el tap en los checkboxes se registre bien
+- hideKeyboard
+# Tap solo en el área checkbox (icono + "Acepto la"), no en el link Política de Privacidad
+- tapOn:
+    id: "e2e-register-accept-privacy"
+# Scroll para traer el segundo checkbox si queda abajo
+- scrollUntilVisible:
+    element:
+      id: "e2e-register-accept-marketing"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "e2e-register-accept-marketing"
+# Asegurar que el botón CREAR CUENTA está visible
+- scrollUntilVisible:
+    element:
+      id: "e2e-register-submit"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "e2e-register-submit"
+
+# ----- 3. Alert "¡Verifica tu email!" → Continuar -----
+- tapOn: "Continuar"
+
+# ----- 4. Pantalla de Verificación (Magic OTP 000000) -----
+- assertVisible: "Verifica tu email"
+- inputText: "000000"
+- tapOn: "Verificar"
+
+# ----- 5. Validación Home (post-login) -----
+- assertVisible: "MIS COMPETICIONES"
+
+# ----- 6. Crear una liga para poder crear partido (usuario nuevo no tiene liga) -----
+- tapOn: "CREAR / UNIRSE"
+# Asegurar pestaña CREAR y enfocar el campo nombre
+- tapOn:
+    id: "e2e-create-league-tab"
+- tapOn:
+    id: "e2e-create-league-name"
+- inputText: "Liga E2E"
+# Ocultar teclado para que el botón CREAR LIGA quede visible y se pueda pulsar
+- hideKeyboard
+# Scroll hasta ver el botón (al menos 50% visible) y centrarlo
+- scrollUntilVisible:
+    element:
+      id: "e2e-create-league-submit"
+    direction: DOWN
+    timeout: 8000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn:
+    id: "e2e-create-league-submit"
+# Esperar a que aparezca el alert de éxito (liga creada)
+- extendedWaitUntil:
+    visible: "¡Éxito!"
+    timeout: 10000
+# Cerrar el alert (Android puede mostrar "OK" o "Continuar" según versión)
+- runFlow:
+    when:
+      visible: "Continuar"
+    commands:
+      - tapOn: "Continuar"
+- runFlow:
+    when:
+      visible: "OK"
+    commands:
+      - tapOn: "OK"
+
+# ----- 7. Entrar a la liga creada -----
+- tapOn: "Liga E2E"
+
+# ----- 8. Ir a pestaña Partidos -----
+- tapOn: "Partidos"
+
+# ----- 9. Abrir formulario Nuevo Partido (por testID para no equivocar tap) -----
+- extendedWaitUntil:
+    visible: "PROGRAMAR PARTIDO"
+    timeout: 8000
+- tapOn:
+    id: "e2e-match-index-programar"
+
+# ----- 10. Esperar pantalla de crear partido y rellenar formulario -----
+- extendedWaitUntil:
+    visible: "NUEVO PARTIDO"
+    timeout: 10000
+- tapOn:
+    id: "e2e-match-create-location"
+- inputText: "Canchas E2E"
+- tapOn:
+    id: "e2e-match-create-datetime"
+# iOS: Siguiente (fecha) → Listo (hora). Android: Aceptar/OK en fecha y otra vez en hora
+- runFlow:
+    when:
+      visible: "Siguiente"
+    commands:
+      - tapOn: "Siguiente"
+- runFlow:
+    when:
+      visible: "Listo"
+    commands:
+      - tapOn: "Listo"
+- runFlow:
+    when:
+      visible: "Aceptar"
+    commands:
+      - tapOn: "Aceptar"
+- runFlow:
+    when:
+      visible: "OK"
+    commands:
+      - tapOn: "OK"
+# Segunda vez: en Android sale fecha y luego hora; hay que aceptar la hora también
+- runFlow:
+    when:
+      visible: "Aceptar"
+    commands:
+      - tapOn: "Aceptar"
+- runFlow:
+    when:
+      visible: "OK"
+    commands:
+      - tapOn: "OK"
+# Esperar a que se cierre el picker y el formulario sea visible de nuevo
+- extendedWaitUntil:
+    visible: "PRECIO POR JUGADOR"
+    timeout: 8000
+- scrollUntilVisible:
+    element:
+      id: "e2e-match-create-price"
+    direction: DOWN
+    timeout: 5000
+- tapOn:
+    id: "e2e-match-create-price"
+- inputText: "100"
+# Cerrar teclado para poder hacer scroll y ver jugadores y botón
+- hideKeyboard
+# Convocar al menos un jugador (por id del primer jugador; en liga nueva es E2E User)
+- scrollUntilVisible:
+    element:
+      id: "e2e-match-create-first-player"
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 50
+    speed: 60
+    centerElement: true
+- tapOn:
+    id: "e2e-match-create-first-player"
+# Scroll hasta el botón CONFIRMAR PARTIDO
+- scrollUntilVisible:
+    element:
+      id: "e2e-match-create-submit"
+    direction: DOWN
+    timeout: 10000
+    visibilityPercentage: 50
+    centerElement: true
+- tapOn:
+    id: "e2e-match-create-submit"
+
+# ----- 11. Alert de éxito: en Android el mensaje puede no estar expuesto; esperar el botón y cerrar
+- extendedWaitUntil:
+    visible: "Volver"
+    timeout: 15000
+- tapOn: "Volver"
