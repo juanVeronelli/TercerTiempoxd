@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Linking,
   StatusBar,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -18,8 +19,16 @@ import { useCustomAlert } from "../../src/context/AlertContext";
 import { PAYWALL_OFFERING_ID } from "../../src/services/SubscriptionUI";
 import type { PurchasesPackage } from "react-native-purchases";
 
+const PRO_FEATURES = [
+  "Remover anuncios",
+  "3 slots adicionales para ligas",
+  "Features con IA",
+  "Estadísticas avanzadas",
+  "Personalización y cosméticos",
+];
+
 /**
- * Paywall estilizado que usa datos de RevenueCat (offering, precios).
+ * Paywall premium que usa datos de RevenueCat (offering, precios).
  * Al comprar: purchasePackage → syncProToBackend → actualiza plan en backend.
  */
 export default function PaywallScreen() {
@@ -98,6 +107,11 @@ export default function PaywallScreen() {
     return pkg.packageType ?? "Pro";
   };
 
+  const isAnnualPlan = (pkg: PurchasesPackage) => {
+    const label = planLabel(pkg);
+    return label === "Anual";
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
@@ -105,26 +119,39 @@ export default function PaywallScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.logoSection}>
+          <Image
+            source={require("../../assets/images/Logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+            accessibilityLabel="Tercer Tiempo"
+          />
+        </View>
+
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Hazte PRO</Text>
+          <Text style={styles.headerTitle}>Desbloquea el Potencial Completo</Text>
           <Text style={styles.headerSubtitle}>
-            Sin anuncios, estadísticas avanzadas y más.
+            Únete a PRO y lleva tu experiencia de fútbol al siguiente nivel.
           </Text>
         </View>
 
-        <View style={styles.benefits}>
-          {["Sin publicidad", "Estadísticas avanzadas", "Gestión ilimitada"].map(
-            (item, i) => (
-              <View key={i} style={styles.benefitRow}>
-                <Ionicons name="checkmark-circle" size={22} color={Colors.accent} />
-                <Text style={styles.benefitText}>{item}</Text>
+        <View style={styles.featuresSection}>
+          {PRO_FEATURES.map((item, i) => (
+            <View key={i} style={styles.featureRow}>
+              <View style={styles.featureIconWrap}>
+                <Ionicons name="checkmark" size={16} color={Colors.textPrimary} />
               </View>
-            )
-          )}
+              <Text style={styles.featureText}>{item}</Text>
+            </View>
+          ))}
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color={Colors.accent} style={{ marginVertical: 24 }} />
+          <ActivityIndicator
+            size="large"
+            color={Colors.primary}
+            style={styles.loader}
+          />
         ) : packages.length === 0 ? (
           <Text style={styles.noPlans}>
             No hay planes disponibles. Revisa la configuración en RevenueCat.
@@ -132,32 +159,49 @@ export default function PaywallScreen() {
         ) : (
           <>
             <View style={styles.plansSection}>
-              {packages.map((pkg, index) => (
-                <TouchableOpacity
-                  key={pkg.identifier}
-                  style={[
-                    styles.planCard,
-                    selectedIndex === index && styles.planCardSelected,
-                  ]}
-                  onPress={() => setSelectedIndex(index)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.planContent}>
-                    <Text style={styles.planTitle}>{planLabel(pkg)}</Text>
-                    <Text style={styles.planPrice}>
-                      {pkg.product?.priceString ?? "—"}
-                    </Text>
-                  </View>
-                  <View
+              {packages.map((pkg, index) => {
+                const label = planLabel(pkg);
+                const showBadge = isAnnualPlan(pkg);
+                const isSelected = selectedIndex === index;
+
+                return (
+                  <TouchableOpacity
+                    key={pkg.identifier}
                     style={[
-                      styles.radioOuter,
-                      selectedIndex === index && styles.radioOuterSelected,
+                      styles.planCard,
+                      isSelected && styles.planCardSelected,
                     ]}
+                    onPress={() => setSelectedIndex(index)}
+                    activeOpacity={0.85}
                   >
-                    {selectedIndex === index && <View style={styles.radioInner} />}
-                  </View>
-                </TouchableOpacity>
-              ))}
+                    {showBadge && (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>Ahorra 20%</Text>
+                      </View>
+                    )}
+                    <View style={styles.planCardContent}>
+                      <Text style={styles.planTitle}>{label}</Text>
+                      <Text style={styles.planPrice}>
+                        {pkg.product?.priceString ?? "—"}
+                      </Text>
+                      {pkg.product?.introPrice?.priceString ? (
+                        <Text style={styles.planIntro}>
+                          {pkg.product.introPrice.priceString} por período
+                          introductorio
+                        </Text>
+                      ) : null}
+                    </View>
+                    <View
+                      style={[
+                        styles.radioOuter,
+                        isSelected && styles.radioOuterSelected,
+                      ]}
+                    >
+                      {isSelected && <View style={styles.radioInner} />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <TouchableOpacity
@@ -167,20 +211,26 @@ export default function PaywallScreen() {
               activeOpacity={0.9}
             >
               {purchasing ? (
-                <ActivityIndicator color={Colors.background} size="small" />
+                <ActivityIndicator color={Colors.textInverse} size="small" />
               ) : (
-                <Text style={styles.ctaText}>Suscribirme</Text>
+                <Text style={styles.ctaText}>Suscribirse Ahora</Text>
               )}
             </TouchableOpacity>
           </>
         )}
 
         <View style={styles.legal}>
-          <TouchableOpacity onPress={() => Linking.openURL("https://tercertiempo.com/terminos")}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL("https://tercertiempo.com/terminos")}
+          >
             <Text style={styles.legalLink}>Términos</Text>
           </TouchableOpacity>
           <Text style={styles.legalSep}> · </Text>
-          <TouchableOpacity onPress={() => Linking.openURL("https://tercertiempo.com/privacidad")}>
+          <TouchableOpacity
+            onPress={() =>
+              Linking.openURL("https://tercertiempo.com/privacidad")
+            }
+          >
             <Text style={styles.legalLink}>Privacidad</Text>
           </TouchableOpacity>
           <Text style={styles.legalSep}> · </Text>
@@ -198,71 +248,178 @@ export default function PaywallScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scrollContent: { paddingTop: 48, paddingBottom: 40, paddingHorizontal: 20 },
-  header: { marginBottom: 24 },
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  scrollContent: {
+    paddingTop: 56,
+    paddingBottom: 48,
+    paddingHorizontal: 24,
+  },
+  logoSection: {
+    alignItems: "center",
+    marginBottom: 28,
+  },
+  logo: {
+    width: 64,
+    height: 64,
+  },
+  header: {
+    marginBottom: 32,
+  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "900",
     color: Colors.textPrimary,
+    textAlign: "center",
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 16,
     color: Colors.textSecondary,
-    marginTop: 8,
+    textAlign: "center",
+    marginTop: 10,
+    lineHeight: 22,
   },
-  benefits: { marginBottom: 28, gap: 12 },
-  benefitRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  benefitText: { fontSize: 16, color: Colors.textPrimary, fontWeight: "600" },
-  noPlans: { color: Colors.textSecondary, textAlign: "center", marginVertical: 24 },
-  plansSection: { marginBottom: 24, gap: 12 },
+  featuresSection: {
+    marginBottom: 32,
+    gap: 14,
+  },
+  featureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  featureIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: Colors.status.success + "20",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featureText: {
+    fontSize: 16,
+    color: Colors.textPrimary,
+    fontWeight: "600",
+    flex: 1,
+  },
+  loader: {
+    marginVertical: 32,
+  },
+  noPlans: {
+    color: Colors.textSecondary,
+    textAlign: "center",
+    marginVertical: 32,
+    fontSize: 15,
+  },
+  plansSection: {
+    marginBottom: 28,
+    gap: 14,
+  },
   planCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 2,
     borderColor: Colors.border,
+    minHeight: 88,
   },
   planCardSelected: {
-    borderColor: Colors.accent,
-    backgroundColor: Colors.accent + "15",
+    borderColor: Colors.primary,
+    borderWidth: 3,
+    backgroundColor: Colors.primary + "12",
   },
-  planContent: { flex: 1 },
-  planTitle: { fontSize: 17, fontWeight: "800", color: Colors.textPrimary },
-  planPrice: { fontSize: 18, fontWeight: "900", color: Colors.accent, marginTop: 4 },
+  badge: {
+    position: "absolute",
+    top: -1,
+    right: 16,
+    backgroundColor: Colors.accentGold,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: Colors.textInverse,
+    letterSpacing: 0.3,
+  },
+  planCardContent: {
+    flex: 1,
+  },
+  planTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: Colors.textPrimary,
+  },
+  planPrice: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: Colors.primary,
+    marginTop: 2,
+  },
+  planIntro: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
   radioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 12,
   },
-  radioOuterSelected: { borderColor: Colors.accent },
+  radioOuterSelected: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+  },
   radioInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.primary,
   },
   cta: {
-    backgroundColor: Colors.accent,
-    paddingVertical: 16,
-    borderRadius: 14,
+    backgroundColor: Colors.primary,
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: "center",
   },
-  ctaDisabled: { opacity: 0.7 },
-  ctaText: { fontSize: 16, fontWeight: "900", color: Colors.background },
+  ctaDisabled: {
+    opacity: 0.7,
+  },
+  ctaText: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: Colors.textInverse,
+  },
   legal: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 24,
+    marginTop: 28,
   },
-  legalLink: { fontSize: 12, color: Colors.textSecondary },
-  legalSep: { fontSize: 12, color: Colors.textSecondary },
-  closeBtn: { position: "absolute", top: 10, right: 20, padding: 8 },
+  legalLink: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  legalSep: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  closeBtn: {
+    position: "absolute",
+    top: 12,
+    right: 20,
+    padding: 8,
+    zIndex: 10,
+  },
 });

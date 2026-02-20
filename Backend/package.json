@@ -8,6 +8,8 @@
     "build": "tsc -p tsconfig.build.json",
     "build:worker": "tsc -p tsconfig.worker.json && node -e \"require('fs').cpSync('src/generated', 'dist/generated', {recursive:true})\"",
     "start": "node dist/server.js",
+    "seed:test": "tsx scripts/seed-test-users.ts",
+    "seed:matches": "tsx scripts/seed-matches.ts",
     "test": "cross-env NODE_ENV=test jest --runInBand --forceExit",
     "test:ci": "cross-env NODE_ENV=test jest --runInBand --ci --forceExit"
   },

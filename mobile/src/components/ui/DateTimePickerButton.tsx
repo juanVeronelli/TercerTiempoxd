@@ -50,30 +50,30 @@ export function DateTimePickerButton({
     setShow(true);
   };
 
+  // iOS: Solo actualizamos tempDate al hacer scroll; el modo cambia solo con "Siguiente"/"Listo".
+  // Android: El diálogo nativo se cierra al confirmar; solo entonces avanzamos a hora.
   const handlePickerChange = (_: DateTimePickerEvent, selected?: Date) => {
     if (selected === undefined) {
       if (Platform.OS === "android") setShow(false);
       return;
     }
-
     if (mode === "date") {
       setTempDate(selected);
-      if (Platform.OS === "ios") {
-        setMode("time");
-      } else {
+      if (Platform.OS === "android") {
         setShow(false);
         setMode("time");
-        setTimeout(() => setShow(true), 100);
+        setTimeout(() => setShow(true), 150);
       }
     } else {
       const next = new Date(tempDate);
       next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
-      if (Platform.OS === "ios") {
-        setTempDate(next);
-      } else {
+      setTempDate(next);
+      if (Platform.OS === "android") {
         onChange(next);
         onConfirm?.();
         setShow(false);
+      } else {
+        setTempDate(next);
       }
     }
   };
@@ -84,16 +84,45 @@ export function DateTimePickerButton({
     setShow(false);
   };
 
-  const pickerValue = mode === "date" ? tempDate : tempDate;
-  const picker = (
+  const pickerProps = {
+    value: tempDate,
+    mode,
+    onChange: handlePickerChange,
+    minimumDate,
+    locale: "es-ES",
+  };
+
+  const picker = Platform.OS === "ios" ? (
     <DateTimePicker
-      value={pickerValue}
-      mode={mode}
-      display={Platform.OS === "ios" ? "spinner" : "default"}
-      onChange={handlePickerChange}
-      minimumDate={minimumDate}
-      locale="es-ES"
+      {...pickerProps}
+      display="spinner"
+      themeVariant="dark"
     />
+  ) : (
+    <DateTimePicker {...pickerProps} display="default" />
+  );
+
+  const modalBody = (
+    <>
+      <View style={styles.modalHeader}>
+        <Pressable onPress={() => setShow(false)}>
+          <Text style={styles.modalCancel}>Cancelar</Text>
+        </Pressable>
+        <Text style={styles.modalTitle}>
+          {mode === "date" ? "Elegir fecha" : "Elegir hora"}
+        </Text>
+        <Pressable
+          onPress={
+            mode === "date" ? () => setMode("time") : handleConfirmTime
+          }
+        >
+          <Text style={styles.modalDone}>
+            {mode === "date" ? "Siguiente" : "Listo"}
+          </Text>
+        </Pressable>
+      </View>
+      {picker}
+    </>
   );
 
   return (
@@ -129,32 +158,18 @@ export function DateTimePickerButton({
 
       {Platform.OS === "ios" && show && (
         <Modal transparent animationType="slide">
-          <Pressable style={styles.modalOverlay} onPress={() => setShow(false)}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Pressable onPress={() => setShow(false)}>
-                  <Text style={styles.modalCancel}>Cancelar</Text>
-                </Pressable>
-                <Text style={styles.modalTitle}>
-                  {mode === "date" ? "Elegir fecha" : "Elegir hora"}
-                </Text>
-                <Pressable
-                  onPress={
-                    mode === "date"
-                      ? () => {
-                          setMode("time");
-                        }
-                      : handleConfirmTime
-                  }
-                >
-                  <Text style={styles.modalDone}>
-                    {mode === "date" ? "Siguiente" : "Listo"}
-                  </Text>
-                </Pressable>
-              </View>
-              {picker}
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setShow(false)}
+            />
+            <View
+              style={styles.modalContentOuter}
+              onStartShouldSetResponder={() => true}
+            >
+              {modalBody}
             </View>
-          </Pressable>
+          </View>
         </Modal>
       )}
 
@@ -204,8 +219,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     backgroundColor: "rgba(0,0,0,0.5)",
   },
-  modalContent: {
-    backgroundColor: "#1F2937",
+  modalContentOuter: {
+    backgroundColor: Colors.surface ?? "#1F2937",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingBottom: 34,
