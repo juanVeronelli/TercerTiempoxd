@@ -11,10 +11,14 @@ const apiUrl =
     ? process.env.EXPO_PUBLIC_API_URL.trim()
     : "";
 
-// AdMob: IDs de PRUEBA de Google (para testear sin cuenta de AdMob)
+// AdMob: desde env (EXPO_PUBLIC_ADMOB_ANDROID_APP_ID, EXPO_PUBLIC_ADMOB_IOS_APP_ID) o IDs de prueba
 const ADMOB_APP_IDS = {
-  android: "ca-app-pub-3940256099942544~3347511713",
-  ios: "ca-app-pub-3940256099942544~1458002511",
+  android:
+    process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID?.trim() ||
+    "ca-app-pub-3940256099942544~3347511713",
+  ios:
+    process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID?.trim() ||
+    "ca-app-pub-3940256099942544~1458002511",
 };
 
 // Package Android (identificador de la app para el build)
