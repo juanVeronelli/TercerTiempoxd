@@ -40,7 +40,7 @@ module.exports = {
       ...appJson.expo?.android,
       package: ANDROID_PACKAGE,
       adaptiveIcon: appJson.expo?.android?.adaptiveIcon || {
-        foregroundImage: "./assets/images/Logo.png",
+        foregroundImage: "./assets/images/IconAdaptive.png",
         backgroundColor: "#ffffff",
       },
     },

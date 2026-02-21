@@ -4,12 +4,12 @@
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Logo.png",
+    "icon": "./assets/images/IconAdaptive.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/Logo.png",
+      "image": "./assets/images/IconAdaptive.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Logo.png",
+        "foregroundImage": "./assets/images/IconAdaptive.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -27,7 +27,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/Logo.png"
+      "favicon": "./assets/images/IconAdaptive.png"
     },
     "plugins": [
       "expo-router",
