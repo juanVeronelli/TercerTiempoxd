@@ -9,6 +9,8 @@ import {
   Modal,
   Dimensions,
   ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -65,12 +67,21 @@ export default function VoteScreen() {
   const [showSummary, setShowSummary] = useState(false);
   const [sending, setSending] = useState(false);
 
+  // Indicador de progreso para admin (cuántos ya votaron)
+  const [votersCount, setVotersCount] = useState(0);
+  const [totalPlayers, setTotalPlayers] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
+
   // 1. Cargar Jugadores y Verificar Estado
   useEffect(() => {
     const fetchPlayers = async () => {
       if (!matchId) return;
       try {
         const res = await apiClient.get(`/match/${matchId}/vote-list`);
+
+        setVotersCount(res.data.votersCount ?? 0);
+        setTotalPlayers(res.data.totalPlayers ?? 0);
+        setIsAdmin(res.data.isAdmin ?? false);
 
         // Si el backend dice que ya votó, activamos el bloqueo
         if (res.data.hasVoted) {
@@ -207,6 +218,23 @@ export default function VoteScreen() {
           { justifyContent: "center", alignItems: "center", padding: 20 },
         ]}
       >
+        {isAdmin && (
+          <View style={styles.adminVotesIndicator}>
+            <Text style={styles.adminVotesText}>
+              Votos: {votersCount}/{totalPlayers}
+            </Text>
+            <View style={styles.adminVotesBarBg}>
+              <View
+                style={[
+                  styles.adminVotesBarFill,
+                  {
+                    width: `${totalPlayers > 0 ? (votersCount / totalPlayers) * 100 : 0}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        )}
         <Ionicons
           name="checkmark-done-circle"
           size={80}
@@ -254,33 +282,63 @@ export default function VoteScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="close" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          VOTACIÓN ({currentIndex + 1}/{players.length})
-        </Text>
-        {/* El botón Resumen ahora valida antes de abrir */}
-        <TouchableOpacity onPress={handleReview}>
-          <Text style={{ color: "#F59E0B", fontWeight: "bold", fontSize: 12 }}>
-            RESUMEN
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="close" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            VOTACIÓN ({currentIndex + 1}/{players.length})
           </Text>
-        </TouchableOpacity>
-      </View>
+          {/* El botón Resumen ahora valida antes de abrir */}
+          <TouchableOpacity onPress={handleReview}>
+            <Text style={{ color: "#F59E0B", fontWeight: "bold", fontSize: 12 }}>
+              RESUMEN
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* BARRA DE PROGRESO */}
-      <View style={styles.progressBarBg}>
-        <View
-          style={[
-            styles.progressBarFill,
-            { width: `${((currentIndex + 1) / players.length) * 100}%` },
-          ]}
-        />
-      </View>
+        {/* Indicador de votos para admin */}
+        {isAdmin && (
+          <View style={styles.adminVotesIndicator}>
+            <Text style={styles.adminVotesText}>
+              Votos: {votersCount}/{totalPlayers}
+            </Text>
+            <View style={styles.adminVotesBarBg}>
+              <View
+                style={[
+                  styles.adminVotesBarFill,
+                  {
+                    width: `${totalPlayers > 0 ? (votersCount / totalPlayers) * 100 : 0}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        )}
 
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
+        {/* BARRA DE PROGRESO */}
+        <View style={styles.progressBarBg}>
+          <View
+            style={[
+              styles.progressBarFill,
+              { width: `${((currentIndex + 1) / players.length) * 100}%` },
+            ]}
+          />
+        </View>
+
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
         {/* TARJETA DEL JUGADOR */}
         <View style={styles.playerCard}>
           <View style={styles.avatarLarge}>
@@ -434,6 +492,7 @@ export default function VoteScreen() {
           )}
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
 
       {/* MODAL DE RESUMEN Y CONFIRMACIÓN */}
       <Modal visible={showSummary} animationType="slide" transparent>
@@ -559,6 +618,28 @@ const styles = StyleSheet.create({
 
   progressBarBg: { height: 4, backgroundColor: "#374151", width: "100%" },
   progressBarFill: { height: "100%", backgroundColor: "#F59E0B" },
+
+  adminVotesIndicator: {
+    paddingHorizontal: 15,
+    paddingBottom: 8,
+  },
+  adminVotesText: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  adminVotesBarBg: {
+    height: 6,
+    backgroundColor: "#374151",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  adminVotesBarFill: {
+    height: "100%",
+    backgroundColor: "#10B981",
+    borderRadius: 3,
+  },
 
   content: { padding: 20 },
 

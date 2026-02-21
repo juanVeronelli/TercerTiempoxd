@@ -11,6 +11,8 @@ interface NextMatchCardProps {
   onConfirm: () => void;
   onCancel: () => void;
   onEdit?: () => void;
+  /** Rol en la liga (ADMIN/OWNER). Usado como fallback si isAdmin no llega bien desde el padre. */
+  userRole?: string;
 }
 
 const STATUS_COLORS: any = {
@@ -52,6 +54,7 @@ export const NextMatchCard = ({
   onConfirm,
   onCancel,
   onEdit,
+  userRole,
 }: NextMatchCardProps) => {
   if (!match) return null;
 
@@ -105,8 +108,8 @@ export const NextMatchCard = ({
           </View>
         </View>
 
-        {/* Botón Gestionar (Solo Admin) */}
-        {isAdmin && onEdit && (
+        {/* Botón Gestionar: visible para admin/owner (OWNER o ADMIN). userRole es fallback si isAdmin falla. */}
+        {((!!isAdmin || userRole === "ADMIN" || userRole === "OWNER") && onEdit != null) ? (
           <TouchableOpacity onPress={onEdit} style={styles.editButton}>
             <Text style={styles.editText}>Gestionar</Text>
             <Ionicons
@@ -115,7 +118,7 @@ export const NextMatchCard = ({
               color={Colors.textSecondary || "#9CA3AF"}
             />
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
 
       {/* --- INFO DEL PARTIDO (Fecha, Lugar, Precio) --- */}

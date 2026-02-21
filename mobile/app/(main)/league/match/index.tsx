@@ -44,7 +44,8 @@ export default function MatchScreen() {
   const { showAlert } = useCustomAlert();
 
   // LÓGICA DE ROLES
-  const [isAdmin, setIsAdmin] = useState(false); // Esta variable ahora controla si veo funciones de admin
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -63,10 +64,11 @@ export default function MatchScreen() {
       const data = leagueRes.data;
       setLeagueData(data);
 
-      // NUEVA LÓGICA: Si el rol es OWNER o ADMIN, activamos isAdmin
-      const userHasPower =
-        data.userRole === "OWNER" || data.userRole === "ADMIN";
+      // LÓGICA: Solo ADMIN u OWNER pueden ver/uso Gestionar
+      const role = (data.userRole || "").toString().toUpperCase();
+      const userHasPower = role === "ADMIN" || role === "OWNER";
       setIsAdmin(userHasPower);
+      setUserRole(role);
 
       // --- CARGA DE PARTIDOS ---
       if (userHasPower) {
@@ -384,10 +386,14 @@ export default function MatchScreen() {
                     <NextMatchCard
                       match={match}
                       isAdmin={true}
+                      userRole={userRole}
                       onConfirm={() => handleConfirm(match.id)}
                       onCancel={() => handleCancel(match.id)}
                       onEdit={() =>
-                        router.push(`/(main)/league/match/${match.id}`)
+                        router.push({
+                          pathname: `/(main)/league/match/${match.id}`,
+                          params: { userRole },
+                        })
                       }
                     />
                   </View>

@@ -19,6 +19,9 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIMETYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
@@ -31,4 +34,15 @@ const storage = new CloudinaryStorage({
   },
 });
 
-export const upload = multer({ storage: storage });
+export const upload = multer({
+  storage,
+  limits: { fileSize: MAX_AVATAR_SIZE_BYTES },
+  fileFilter: (req, file, cb) => {
+    const mime = file.mimetype?.toLowerCase();
+    if (mime && ALLOWED_MIMETYPES.includes(mime)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Formato de imagen no válido. Use JPEG, PNG, GIF o WebP."));
+    }
+  },
+});

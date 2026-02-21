@@ -263,6 +263,7 @@ export const unconfirmMatch = async (req: Request, res: Response) => {
 export const getMatchDetails = async (req: Request, res: Response) => {
   try {
     const matchId = req.params.matchId as string;
+    const userId = (req as any).user?.userId;
 
     const match = await prisma.matches.findUnique({
       where: { id: matchId },
@@ -348,14 +349,36 @@ export const getMatchDetails = async (req: Request, res: Response) => {
         };
       });
 
-    // 3. Devolvemos la respuesta manteniendo la raíz del objeto match (...match)
+    // Rol del usuario actual en la liga (para UI: ADMIN y OWNER ven Gestionar y botones de estado)
+    let userRole = "MEMBER";
+    if (leagueId && userId) {
+      const [member, league] = await Promise.all([
+        prisma.league_members.findUnique({
+          where: {
+            league_id_user_id: { league_id: leagueId, user_id: userId },
+          },
+          select: { role: true },
+        }),
+        prisma.leagues.findUnique({
+          where: { id: leagueId },
+          select: { admin_id: true },
+        }),
+      ]);
+      // Fallback: si es admin de la liga (leagues.admin_id) pero no está en league_members, tratar como OWNER
+      const roleFromMember = member?.role ?? null;
+      const isLeagueOwner = league?.admin_id === userId;
+      userRole = (roleFromMember ?? (isLeagueOwner ? "OWNER" : null)) ?? "MEMBER";
+      // Normalizar a mayúsculas por si la DB tiene valores en minúsculas
+      userRole = String(userRole).toUpperCase();
+    }
+
     res.json({
       ...match,
       match_players: playersWithVoteStatus,
-      // Agregamos estas propiedades extra que pide tu pantalla de resultados
-      players: playersWithVoteStatus, // Alias para facilitar el map en el front
+      players: playersWithVoteStatus,
       comments: comments,
       honors: match.honors,
+      userRole,
     });
   } catch (error) {
     console.error("Error fetching match details:", error);
@@ -615,10 +638,21 @@ export const getVoteList = async (req: Request, res: Response) => {
       });
     }
 
-    // RESPUESTA MODIFICADA: Ahora devolvemos un objeto con flag
+    // Cantidad de votantes únicos (para indicador de progreso del admin)
+    const distinctVoters = await prisma.match_votes.groupBy({
+      by: ["voter_id"],
+      where: { match_id: matchId },
+    });
+    const votersCount = distinctVoters.filter((v) => v.voter_id != null).length;
+    const totalPlayers = match.match_players.length;
+    const isAdmin = !!userId && match.admin_id === userId;
+
     res.json({
-      hasVoted: !!existingVotes, // true si ya votó
+      hasVoted: !!existingVotes,
       players: match.match_players.map((p) => p.users),
+      votersCount,
+      totalPlayers,
+      isAdmin,
     });
   } catch (error) {
     console.error(error);

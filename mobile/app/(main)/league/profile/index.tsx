@@ -13,11 +13,16 @@ import { Ionicons } from "@expo/vector-icons";
 import ViewShot from "react-native-view-shot";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
+
+// Límites para subida de foto de perfil
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
 
 import { useCustomAlert } from "../../../../src/context/AlertContext";
 import { Colors } from "../../../../src/constants/Colors";
-import apiClient from "../../../../src/api/apiClient";
+import apiClient, { getApiBaseUrl } from "../../../../src/api/apiClient";
 import { ScreenHeader } from "../../../../src/components/ui/ScreenHeader";
 import { AchievementsWidget } from "../../../../src/components/profile/AchievementsWidget";
 import { NativeAdCardWrapper } from "../../../../src/components/ads/NativeAdCardWrapper";
@@ -270,40 +275,135 @@ export default function ProfileScreen() {
     [careerStats, trophyCase, recentMatches],
   );
 
-  const handlePickImage = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") return showAlert("Permiso denegado");
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled) await uploadImage(result.assets[0].uri);
-  }, [showAlert]);
-
   const uploadImage = useCallback(
-    async (uri: string) => {
+    async (asset: ImagePicker.ImagePickerAsset) => {
       try {
         setUploading(true);
-        const formData = new FormData();
-        // @ts-ignore
-        formData.append("photo", { uri, name: "profile.jpg", type: "image/jpeg" });
-        const res = await apiClient.post("/auth/upload-avatar", formData);
-        const newPhotoUrl =
-          res.data?.user?.profile_photo_url ?? res.data?.photoUrl ?? res.data?.url;
-        if (newPhotoUrl) {
-          setUser((prev: any) => (prev ? { ...prev, photoUrl: newPhotoUrl } : prev));
-          setTimeout(() => fetchData(), 500);
+        const { uri, fileSize, mimeType, fileName } = asset;
+
+        // Validar tamaño de la imagen
+        let sizeBytes = fileSize;
+        if (sizeBytes == null) {
+          const info = await FileSystem.getInfoAsync(uri);
+          sizeBytes = (info as { size?: number }).size ?? 0;
         }
-      } catch {
-        showAlert("Error", "No se pudo subir la imagen.");
+        if (sizeBytes > MAX_IMAGE_SIZE_BYTES) {
+          showAlert(
+            "Imagen demasiado grande",
+            "La imagen no puede superar 5 MB. Por favor, elige una foto más pequeña o comprímela antes de subirla.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+
+        // Validar formato (mimeType puede ser null en algunas plataformas)
+        const type = mimeType ?? (fileName?.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+        if (type && !ALLOWED_MIME_TYPES.includes(type)) {
+          showAlert(
+            "Formato no válido",
+            "Solo se permiten imágenes JPEG, PNG, GIF o WebP.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+
+        const formData = new FormData();
+        const filename = fileName ?? "profile.jpg";
+        const contentType = type ?? "image/jpeg";
+        // @ts-expect-error - React Native FormData acepta { uri, name, type } para archivos
+        formData.append("photo", { uri, name: filename, type: contentType });
+
+        const token = await SecureStore.getItemAsync("userToken");
+        const url = `${getApiBaseUrl()}/auth/upload-avatar`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+          body: formData,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        const data = (await res.json().catch(() => ({}))) as { user?: { profile_photo_url?: string }; photoUrl?: string; url?: string; error?: string; message?: string };
+
+        if (res.ok) {
+          const newPhotoUrl = data?.user?.profile_photo_url ?? data?.photoUrl ?? data?.url;
+          if (newPhotoUrl) {
+            setUser((prev: any) => (prev ? { ...prev, photoUrl: newPhotoUrl } : prev));
+            setTimeout(() => fetchData(), 500);
+          }
+          return;
+        }
+
+        // Errores HTTP del backend
+        const backendMsg = data?.error ?? data?.message;
+        if (res.status === 413) {
+          showAlert(
+            "Imagen demasiado grande",
+            "El servidor rechazó la imagen por su tamaño. Prueba con una foto más pequeña.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+        if (res.status === 415) {
+          showAlert(
+            "Formato no válido",
+            "El formato de imagen no es válido. Usa JPEG, PNG, GIF o WebP.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+        showAlert(
+          "Error al subir",
+          backendMsg ?? `No se pudo subir la imagen (error ${res.status}).`,
+          undefined,
+          "error"
+        );
+      } catch (e: unknown) {
+        const err = e as { name?: string; code?: string; message?: string };
+        if (__DEV__) {
+          console.warn("[uploadImage] Error:", err.name ?? err.code ?? err.message);
+        }
+        const isNetwork =
+          err.name === "AbortError" ||
+          err.code === "ERR_NETWORK" ||
+          err.code === "ECONNABORTED" ||
+          err.code === "ETIMEDOUT" ||
+          err.message?.toLowerCase().includes("network") ||
+          err.message === "Failed to fetch";
+        const message = isNetwork
+          ? "Problema de conexión. Verifica que tengas internet y vuelve a intentarlo."
+          : err.code === "ECONNREFUSED"
+            ? "No se pudo conectar al servidor. Intenta más tarde."
+            : "Ocurrió un problema al subir la imagen. Intenta de nuevo más tarde.";
+        showAlert("Error al subir la foto", message, undefined, "error");
       } finally {
         setUploading(false);
       }
     },
     [showAlert, fetchData],
   );
+
+  const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return showAlert("Permiso denegado", undefined, undefined, "error");
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled) await uploadImage(result.assets[0]);
+  }, [showAlert, uploadImage]);
 
   const handleSaveProfile = useCallback(async () => {
     try {

@@ -109,11 +109,12 @@ export const joinLeague = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Ya sos miembro de esta liga." });
     }
 
-    // 3. Agregamos al usuario como MEMBER
+    // 3. Agregamos al usuario como MEMBER (nunca OWNER: solo el creador lo es)
     await prisma.league_members.create({
       data: {
         user_id: userId,
         league_id: league.id,
+        role: "MEMBER",
         league_overall: 0.0,
         is_banned: false,
       },

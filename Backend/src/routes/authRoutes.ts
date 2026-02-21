@@ -42,8 +42,23 @@ router.get("/:id/public-profile", authenticateToken, getPublicUserProfile);
 router.post(
   "/upload-avatar",
   authenticateToken,
-  upload.single("photo"),
-  uploadProfilePicture,
+  (req, res, next) => {
+    upload.single("photo")(req, res, (err: unknown) => {
+      if (err) {
+        const multerErr = err as { code?: string; message?: string };
+        if (multerErr.code === "LIMIT_FILE_SIZE") {
+          return res.status(413).json({ error: "La imagen supera el límite de 5 MB." });
+        }
+        if (multerErr.message?.includes("Formato")) {
+          return res.status(415).json({ error: multerErr.message });
+        }
+        console.error("Error multer upload-avatar:", err);
+        return res.status(500).json({ error: "Error al subir la imagen." });
+      }
+      next();
+    });
+  },
+  uploadProfilePicture
 );
 router.put("/update-profile", authenticateToken, updateProfileData);
 

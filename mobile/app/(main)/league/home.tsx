@@ -191,6 +191,7 @@ export default function LeagueHomeScreen() {
   const [lastMatch, setLastMatch] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>("");
   const [members, setMembers] = useState<any[]>([]);
 
   const fetchDashboardData = async () => {
@@ -202,9 +203,10 @@ export default function LeagueHomeScreen() {
       const currentLeague = meRes.data.leagues.find(
         (l: any) => l.id === leagueId,
       );
-      const userHasPower =
-        currentLeague?.role === "ADMIN" || currentLeague?.role === "OWNER";
+      const role = (currentLeague?.role || "").toString().toUpperCase();
+      const userHasPower = role === "ADMIN" || role === "OWNER";
       setIsAdmin(userHasPower);
+      setUserRole(role);
 
       // 2. Mis Stats
       try {
@@ -713,13 +715,19 @@ export default function LeagueHomeScreen() {
                     <NextMatchCard
                       match={nextMatch}
                       isAdmin={isAdmin}
+                      userRole={userRole}
                       onConfirm={() => handleJoinMatch(nextMatch.id)}
                       onCancel={() => handleLeaveMatch(nextMatch.id)}
-                      onEdit={() =>
-                        router.push({
-                          pathname: "/(main)/league/match",
-                          params: { matchId: nextMatch.id },
-                        })
+                      onEdit={
+                        isAdmin ||
+                        userRole === "ADMIN" ||
+                        userRole === "OWNER"
+                          ? () =>
+                              router.push({
+                                pathname: `/(main)/league/match/${nextMatch.id}`,
+                                params: { userRole },
+                              })
+                          : undefined
                       }
                     />
                   </View>

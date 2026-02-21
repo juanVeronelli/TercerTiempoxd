@@ -15,6 +15,10 @@ const rawBaseUrl =
 
 const apiBaseUrl = normalizeApiBaseUrl(rawBaseUrl);
 
+export function getApiBaseUrl(): string {
+  return apiBaseUrl;
+}
+
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
   headers: {
@@ -23,6 +27,10 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
+  // FormData: quitar Content-Type para que RN añada multipart/form-data con boundary
+  if (config.data instanceof FormData && config.headers) {
+    delete config.headers["Content-Type"];
+  }
   if (config.headers?.Authorization) {
     return config;
   }

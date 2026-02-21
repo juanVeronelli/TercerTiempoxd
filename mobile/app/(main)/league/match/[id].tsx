@@ -56,8 +56,9 @@ const editSchema = z.object({
 });
 
 export default function MatchDetailScreen() {
-  const { id } = useLocalSearchParams();
-  const matchId = Array.isArray(id) ? id[0] : id;
+  const params = useLocalSearchParams<{ id?: string; userRole?: string }>();
+  const matchId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const paramUserRole = Array.isArray(params.userRole) ? params.userRole[0] : params.userRole;
   const router = useRouter();
   const { showAlert } = useCustomAlert();
 
@@ -74,11 +75,19 @@ export default function MatchDetailScreen() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
 
+  const [userRole, setUserRole] = useState<string>("MEMBER");
+
   const fetchDetails = useCallback(async () => {
     try {
       if (!matchId) return;
       const res = await apiClient.get(`/match/${matchId}/details`);
       setMatch(res.data);
+      const fromApi = (res.data.userRole || "MEMBER").toString().toUpperCase();
+      // Si vinimos de Gestionar, el param userRole es fiable (ADMIN/OWNER)
+      const fromParam = (paramUserRole ?? "").toString().toUpperCase();
+      const role =
+        fromParam === "ADMIN" || fromParam === "OWNER" ? fromParam : fromApi;
+      setUserRole(role);
       setEditLocation(res.data.location_name ?? "");
       setEditPrice(res.data.price_per_player?.toString() ?? "");
       setScoreA(res.data.team_a_score?.toString() ?? "0");
@@ -264,6 +273,14 @@ export default function MatchDetailScreen() {
   const pending = match.match_players?.filter((p: any) => !p.has_confirmed) ?? [];
   const canSave = editValid && !saving;
 
+  const isAdminOrOwner = userRole === "ADMIN" || userRole === "OWNER";
+
+  // Progreso de votación (solo cuando está en estado VOTANDO)
+  const isVoting = match.status === "FINISHED";
+  const totalPlayers = match.match_players?.length ?? 0;
+  const votersCount = match.match_players?.filter((p: any) => p.has_voted).length ?? 0;
+  const pendingVotes = totalPlayers - votersCount;
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.bg} />
@@ -275,13 +292,17 @@ export default function MatchDetailScreen() {
         <Text style={styles.headerTitle}>
           {isEditing ? "MODO EDITOR" : "MATCH CENTER"}
         </Text>
-        <TouchableOpacity style={styles.headerAction} onPress={toggleEditMode}>
-          <Ionicons
-            name={isEditing ? "close" : "pencil"}
-            size={22}
-            color={isEditing ? THEME.danger : THEME.textPrimary}
-          />
-        </TouchableOpacity>
+        {isAdminOrOwner ? (
+          <TouchableOpacity style={styles.headerAction} onPress={toggleEditMode}>
+            <Ionicons
+              name={isEditing ? "close" : "pencil"}
+              size={22}
+              color={isEditing ? THEME.danger : THEME.textPrimary}
+            />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerAction} />
+        )}
       </View>
 
       <KeyboardAvoidingView
@@ -324,7 +345,7 @@ export default function MatchDetailScreen() {
             />
           </View>
 
-          {!isEditing && (
+          {!isEditing && isAdminOrOwner && (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -352,6 +373,58 @@ export default function MatchDetailScreen() {
                 );
               })}
             </ScrollView>
+          )}
+
+          {/* Progreso de votación: solo visible para admin cuando el partido está en VOTACIÓN */}
+          {!isEditing && isAdminOrOwner && isVoting && (
+            <TouchableOpacity
+              style={styles.votingProgressCard}
+              onPress={() => router.push(`/(main)/league/match/vote?matchId=${matchId}`)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.votingProgressHeader}>
+                <View style={styles.votingProgressIconWrap}>
+                  <Ionicons name="star" size={18} color="#FBBF24" />
+                </View>
+                <Text style={styles.votingProgressTitle}>PROGRESO DE VOTACIÓN</Text>
+                <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+              </View>
+              <View style={styles.votingProgressBarBg}>
+                <View
+                  style={[
+                    styles.votingProgressBarFill,
+                    {
+                      width: `${totalPlayers > 0 ? (votersCount / totalPlayers) * 100 : 0}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.votingProgressStats}>
+                <View style={styles.votingStatItem}>
+                  <Ionicons name="checkmark-circle" size={16} color={THEME.accentGreen} />
+                  <Text style={[styles.votingStatVal, { color: THEME.accentGreen }]}>{votersCount}</Text>
+                  <Text style={styles.votingStatLbl}>votaron</Text>
+                </View>
+                <View style={styles.votingStatDivider} />
+                <View style={styles.votingStatItem}>
+                  <Ionicons
+                    name="time-outline"
+                    size={16}
+                    color={pendingVotes > 0 ? "#FBBF24" : THEME.accentGreen}
+                  />
+                  <Text
+                    style={[
+                      styles.votingStatVal,
+                      { color: pendingVotes > 0 ? "#FBBF24" : THEME.accentGreen },
+                    ]}
+                  >
+                    {pendingVotes}
+                  </Text>
+                  <Text style={styles.votingStatLbl}>faltan</Text>
+                </View>
+              </View>
+              <Text style={styles.votingProgressHint}>Toca para ver la votación</Text>
+            </TouchableOpacity>
           )}
 
           <View style={styles.contentSection}>
@@ -578,6 +651,79 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 20,
     justifyContent: "space-around",
+  },
+  votingProgressCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: "rgba(251, 191, 36, 0.08)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.2)",
+  },
+  votingProgressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  votingProgressIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "rgba(251, 191, 36, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  votingProgressTitle: {
+    flex: 1,
+    color: "#FBBF24",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  votingProgressBarBg: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 3,
+    overflow: "hidden",
+    marginBottom: 14,
+  },
+  votingProgressBarFill: {
+    height: "100%",
+    backgroundColor: "#10B981",
+    borderRadius: 3,
+  },
+  votingProgressStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  votingStatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  votingStatVal: {
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  votingStatLbl: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  votingStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  votingProgressHint: {
+    marginTop: 10,
+    color: "#6B7280",
+    fontSize: 10,
+    textAlign: "center",
+    fontStyle: "italic",
   },
   statItem: { alignItems: "center" },
   statVal: { color: "white", fontSize: 20, fontWeight: "900" },

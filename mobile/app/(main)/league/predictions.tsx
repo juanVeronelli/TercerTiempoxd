@@ -374,6 +374,7 @@ export default function PredictionsScreen() {
         <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
         <ScreenHeader
           title="Zona de Predicciones"
+          showBack
         />
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>Falta el ID de la liga.</Text>
@@ -405,6 +406,7 @@ export default function PredictionsScreen() {
       {/* Header personalizado */}
       <ScreenHeader
         title="Zona de Predicciones"
+        showBack
       />
 
       {/* Segmented Control (pestañas flotantes) */}

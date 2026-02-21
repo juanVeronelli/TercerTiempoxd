@@ -133,30 +133,29 @@ export default function MatchResultsScreen() {
     totalPlayers: number,
   ) => {
     const playerHonors = honors.filter((h) => h.user_id === playerId);
-    const badges = [];
+    const badges: { icon: string; color: string; label: string }[] = [];
 
-    if (index === 0)
+    // MVP: desde honors (votación). Independiente de posición.
+    if (playerHonors.some((h) => h.honor_type === "MVP"))
       badges.push({ icon: "trophy", color: "#F59E0B", label: "MVP" });
-    else if (index === 1)
+
+    // Posición en ranking (2º, 3º): visual, no exclusivo de otras medallas.
+    if (index === 1)
       badges.push({ icon: "medal", color: "#9CA3AF", label: "2º" });
-    else if (index === 2)
+    if (index === 2)
       badges.push({ icon: "medal", color: "#B45309", label: "3º" });
 
-    const isFantasma = playerHonors.some((h) => h.honor_type === "FANTASMA");
-    if (isFantasma)
+    // FANTASMA: desde honors. Independiente.
+    if (playerHonors.some((h) => h.honor_type === "FANTASMA"))
       badges.push({ icon: "ghost", color: "#A78BFA", label: "FANTASMA" });
 
-    const isTroncoHonor = playerHonors.some((h) => h.honor_type === "TRONCO");
-    if ((isTroncoHonor || index === totalPlayers - 1) && !isFantasma) {
-      if (!badges.some((b) => b.label === "TRONCO")) {
-        badges.push({ icon: "tree", color: "#EF4444", label: "TRONCO" });
-      }
-    }
+    // TRONCO: desde honors. Independiente (un jugador puede tener Fantasma y Tronco).
+    if (playerHonors.some((h) => h.honor_type === "TRONCO"))
+      badges.push({ icon: "tree", color: "#EF4444", label: "TRONCO" });
 
-    const isOracle = playerHonors.some((h) => h.honor_type === "ORACLE");
-    if (isOracle) {
+    // ORACLE: desde honors (Prode). Independiente. Un jugador puede ser MVP y Oracle.
+    if (playerHonors.some((h) => h.honor_type === "ORACLE"))
       badges.push({ icon: "crystal-ball", color: THEME.gold, label: "ORACLE" });
-    }
 
     return (
       <View style={styles.badgesContainer}>
