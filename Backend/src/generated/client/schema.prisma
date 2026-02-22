@@ -19,7 +19,7 @@ model users {
   bio               String?
   profile_photo_url String?
   banner_url        String?
-  main_position     String?   @db.VarChar(10) // GK, DEF, MID, FWD
+  main_position     String?   @db.VarChar(15) // Arquero, Defensor, Mediocampista, Delantero
   plan_type         String?   @default("FREE") @db.VarChar(10)
   is_active         Boolean?  @default(true)
   created_at        DateTime? @default(now()) @db.Timestamp(6)

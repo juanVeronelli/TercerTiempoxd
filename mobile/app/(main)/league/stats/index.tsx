@@ -23,6 +23,7 @@ import { UserAvatar } from "../../../../src/components/ui/UserAvatar";
 import { Skeleton } from "../../../../src/components/ui/Skeleton";
 import { NativeAdCardWrapper } from "../../../../src/components/ads/NativeAdCardWrapper";
 import apiClient from "../../../../src/api/apiClient";
+import { formatPositionForDisplay } from "../../../../src/constants/Positions";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import Svg, {
@@ -37,22 +38,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Color dorado para acentos PRO
 const PRO_GOLD = "#D4AF37";
 
-// --- UTILS ---
-const getPositionAbbr = (pos: string) => {
-  if (!pos) return "N/A";
-  // Mapeo directo a inglés como solicitado, o usa las primeras 3 letras si no encuentra coincidencia
-  const map: Record<string, string> = {
-    GK: "GK",
-    DEF: "DEF",
-    MID: "MID",
-    FWD: "FWD",
-    PORTERO: "GK",
-    DEFENSA: "DEF",
-    MEDIO: "MID",
-    DELANTERO: "FWD",
-  };
-  return map[pos.toUpperCase()] || pos.substring(0, 3).toUpperCase();
-};
+// --- UTILS (posición en español) ---
 
 // --- COMPONENTE: NUEVA CARTA PRO (Diseño Limpio y Orgánico) ---
 const ProPlayerCard = ({
@@ -68,7 +54,7 @@ const ProPlayerCard = ({
   const getStat = (val: number) =>
     Math.min(99, Math.round((Number(val) || 5) * 10));
   const overall = Math.round(Number(rating) * 10) || 75;
-  const position = getPositionAbbr(user?.mainPosition);
+  const position = formatPositionForDisplay(user?.mainPosition);
 
   const StatBox = ({ label, value }: { label: string; value: number }) => (
     <View style={styles.proStatBox}>

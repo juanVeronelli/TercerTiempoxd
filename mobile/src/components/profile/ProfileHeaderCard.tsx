@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator } fr
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { UserAvatar } from "../ui/UserAvatar";
 import { PROFILE_THEME } from "./profileConstants";
+import { formatPositionForDisplay } from "../../constants/Positions";
 import { PRESET_BANNERS } from "./profileConstants";
 import type { AvatarFramePreset } from "./profileConstants";
 
@@ -23,6 +24,9 @@ type ProfileHeaderCardProps = {
   activeAccent: string;
   uploading: boolean;
   onPickImage: () => void;
+  onEditName?: () => void;
+  onEditBio?: () => void;
+  onEditPosition?: () => void;
 };
 
 export function ProfileHeaderCard({
@@ -31,6 +35,9 @@ export function ProfileHeaderCard({
   activeAccent,
   uploading,
   onPickImage,
+  onEditName,
+  onEditBio,
+  onEditPosition,
 }: ProfileHeaderCardProps) {
   const bannerDef = user?.bannerUrl
     ? PRESET_BANNERS.find((b) => b.id === user.bannerUrl)
@@ -92,29 +99,75 @@ export function ProfileHeaderCard({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.userName}>
-          {user?.name} {user?.surname}
-        </Text>
+        {onEditName ? (
+          <TouchableOpacity
+            onPress={onEditName}
+            style={styles.tappableText}
+            activeOpacity={0.6}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.userName}>
+              {user?.name} {user?.surname}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.userName}>
+            {user?.name} {user?.surname}
+          </Text>
+        )}
         <Text style={styles.userHandle}>@{user?.username || "usuario"}</Text>
 
-        <View
-          style={[
-            styles.positionBadge,
-            { borderColor: activeAccent + "40", backgroundColor: activeAccent + "15" },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name="soccer-field"
-            size={14}
-            color={activeAccent}
-            style={{ marginRight: 5 }}
-          />
-          <Text style={[styles.positionText, { color: activeAccent }]}>
-            {user?.mainPosition || "Posición no definida"}
-          </Text>
-        </View>
+        {onEditPosition ? (
+          <TouchableOpacity
+            onPress={onEditPosition}
+            style={[
+              styles.positionBadge,
+              { borderColor: activeAccent + "40", backgroundColor: activeAccent + "15" },
+            ]}
+            activeOpacity={0.6}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <MaterialCommunityIcons
+              name="soccer-field"
+              size={14}
+              color={activeAccent}
+              style={{ marginRight: 5 }}
+            />
+            <Text style={[styles.positionText, { color: activeAccent }]}>
+              {formatPositionForDisplay(user?.mainPosition)}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View
+            style={[
+              styles.positionBadge,
+              { borderColor: activeAccent + "40", backgroundColor: activeAccent + "15" },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="soccer-field"
+              size={14}
+              color={activeAccent}
+              style={{ marginRight: 5 }}
+            />
+            <Text style={[styles.positionText, { color: activeAccent }]}>
+              {formatPositionForDisplay(user?.mainPosition)}
+            </Text>
+          </View>
+        )}
 
-        <Text style={styles.bioText}>{user?.bio || "Escribe una biografía..."}</Text>
+        {onEditBio ? (
+          <TouchableOpacity
+            onPress={onEditBio}
+            style={styles.tappableBio}
+            activeOpacity={0.6}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Text style={styles.bioText}>{user?.bio || "Escribe una biografía..."}</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={styles.bioText}>{user?.bio || "Escribe una biografía..."}</Text>
+        )}
       </View>
     </View>
   );
@@ -179,6 +232,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: PROFILE_THEME.cardBg,
   },
+  tappableText: {
+    alignItems: "center",
+  },
   userName: {
     color: "white",
     fontSize: 22,
@@ -204,6 +260,10 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   positionText: { fontSize: 12, fontWeight: "700", textTransform: "uppercase" },
+  tappableBio: {
+    width: "100%",
+    alignItems: "center",
+  },
   bioText: {
     color: PROFILE_THEME.textSecondary,
     fontSize: 13,

@@ -17,6 +17,8 @@ import { Colors } from "../../../../src/constants/Colors";
 import { useCustomAlert } from "../../../../src/context/AlertContext";
 import apiClient from "../../../../src/api/apiClient";
 import { MatchScoreBoard } from "../../../../src/components/match/MatchScoreBoard";
+import { MatchStatusCard } from "../../../../src/components/match/MatchStatusCard";
+import { PlayerAccordionGrid } from "../../../../src/components/match/PlayerAccordionGrid";
 import { UserAvatar } from "../../../../src/components/ui/UserAvatar";
 import { Skeleton } from "../../../../src/components/ui/Skeleton";
 import { z } from "zod";
@@ -32,14 +34,6 @@ const THEME = {
   accentBlue: Colors.primary,
   danger: "#EF4444",
   purple: "#8B5CF6",
-};
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  OPEN: { label: "ABIERTO", color: "#60A5FA", icon: "lock-open" },
-  ACTIVE: { label: "JUGANDO", color: "#34D399", icon: "football" },
-  FINISHED: { label: "VOTACIÓN", color: "#FBBF24", icon: "star" },
-  COMPLETED: { label: "CERRADO", color: "#9CA3AF", icon: "checkmark-done" },
-  CANCELLED: { label: "CANCELADO", color: "#F87171", icon: "close-circle" },
 };
 
 const editSchema = z.object({
@@ -345,34 +339,12 @@ export default function MatchDetailScreen() {
             />
           </View>
 
-          {!isEditing && isAdminOrOwner && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.statusScroll}
-              contentContainerStyle={styles.statusScrollContent}
-            >
-              {Object.entries(STATUS_CONFIG).map(([key, conf]) => {
-                const active = match.status === key;
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    style={[styles.statusPill, active && { backgroundColor: conf.color, borderColor: conf.color }]}
-                    onPress={() => handleStatusChange(key)}
-                  >
-                    <Ionicons
-                      name={conf.icon as any}
-                      size={14}
-                      color={active ? "black" : conf.color}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={[styles.statusPillText, active && { color: "black" }]}>
-                      {conf.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+          {!isEditing && (
+            <MatchStatusCard
+              status={match.status ?? "OPEN"}
+              isAdmin={isAdminOrOwner}
+              onStatusChange={isAdminOrOwner ? handleStatusChange : undefined}
+            />
           )}
 
           {/* Progreso de votación: solo visible para admin cuando el partido está en VOTACIÓN */}
@@ -494,54 +466,23 @@ export default function MatchDetailScreen() {
                     <Text style={styles.statLbl}>CONFIRMADOS</Text>
                   </View>
                 </View>
-                {confirmed.map((p: any, i: number) => (
-                  <View key={`c-${i}`} style={styles.playerRow}>
-                    <UserAvatar
-                      imageUrl={p.users?.profile_photo_url}
-                      name={p.users?.full_name || p.users?.username || "Jugador"}
-                      size={40}
-                    />
-                    <View style={styles.playerRowCenter}>
-                      <Text style={styles.rowName}>
-                        {p.users?.full_name || p.users?.username}
-                      </Text>
-                      {!match.is_external && (
-                        <Text
-                          style={[
-                            styles.rowTeam,
-                            { color: p.team === "A" ? THEME.accentBlue : THEME.purple },
-                          ]}
-                        >
-                          {p.team === "A" ? "EQUIPO LOCAL" : "EQUIPO VISITANTE"}
-                        </Text>
-                      )}
-                    </View>
-                    <Ionicons name="checkmark-circle" size={20} color={THEME.accentGreen} />
-                  </View>
-                ))}
-                {pending.length > 0 && (
-                  <>
-                    <Text style={[styles.sectionHeader, styles.pendingHeader]}>
-                      PENDIENTES ({pending.length})
-                    </Text>
-                    {pending.map((p: any, i: number) => (
-                      <View key={`p-${i}`} style={[styles.playerRow, { opacity: 0.7 }]}>
-                        <UserAvatar
-                          imageUrl={p.users?.profile_photo_url}
-                          name={p.users?.full_name || p.users?.username || "Jugador"}
-                          size={40}
-                        />
-                        <View style={styles.playerRowCenter}>
-                          <Text style={styles.rowName}>
-                            {p.users?.full_name || p.users?.username}
-                          </Text>
-                          <Text style={styles.rowTeam}>Sin responder</Text>
-                        </View>
-                        <Ionicons name="time" size={20} color={THEME.accentGold} />
-                      </View>
-                    ))}
-                  </>
-                )}
+                <PlayerAccordionGrid
+                  confirmed={confirmed.map((p: any) => ({
+                    id: p.user_id ?? p.id,
+                    name: p.users?.full_name || p.users?.username || "Jugador",
+                    photo: p.users?.profile_photo_url,
+                    team: p.team,
+                  }))}
+                  pending={pending.map((p: any) => ({
+                    id: p.user_id ?? p.id,
+                    name: p.users?.full_name || p.users?.username || "Jugador",
+                    photo: p.users?.profile_photo_url,
+                    team: p.team,
+                  }))}
+                  declined={[]}
+                  isExternal={match.is_external}
+                  totalThresholdForCollapse={15}
+                />
               </View>
             )}
           </View>
@@ -594,20 +535,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: 15,
   },
-  statusScroll: { maxHeight: 50, marginBottom: 20 },
-  statusScrollContent: { paddingHorizontal: 20 },
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#374151",
-    marginRight: 10,
-    backgroundColor: "#1F2937",
-  },
-  statusPillText: { color: "#9CA3AF", fontSize: 11, fontWeight: "700" },
   editListRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { prisma } from "../server.js";
 import { sanitizeUser } from "../utils/sanitize.js";
+import { isValidPosition } from "../constants/positions.js";
 
 export const getMe = async (req: Request, res: Response) => {
   try {
@@ -195,7 +196,18 @@ export const updateProfileData = async (req: Request, res: Response) => {
     }
 
     if (bio !== undefined) updateData.bio = bio;
-    if (mainPosition !== undefined) updateData.main_position = mainPosition;
+    if (mainPosition !== undefined) {
+      if (mainPosition === null || mainPosition === "") {
+        updateData.main_position = null;
+      } else if (!isValidPosition(mainPosition)) {
+        return res.status(400).json({
+          error: "Posición inválida",
+          message: "Debe ser: Arquero, Defensor, Mediocampista o Delantero.",
+        });
+      } else {
+        updateData.main_position = mainPosition.trim();
+      }
+    }
 
     // --- NUEVA LÓGICA: Mapeo de campos estéticos ---
     if (bannerUrl !== undefined) {

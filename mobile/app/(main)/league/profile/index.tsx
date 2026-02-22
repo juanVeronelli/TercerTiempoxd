@@ -29,6 +29,7 @@ import { NativeAdCardWrapper } from "../../../../src/components/ads/NativeAdCard
 import { ShareableProfileCard } from "../../../../src/components/share/ShareableProfileCard";
 import { presentCustomerCenter } from "../../../../src/services/SubscriptionUI";
 
+import { formatPositionForDisplay } from "../../../../src/constants/Positions";
 import {
   PROFILE_THEME,
   PRESET_BANNERS,
@@ -121,7 +122,7 @@ export default function ProfileScreen() {
         name: firstName || "Usuario",
         surname: restName.join(" "),
         bannerUrl: rawUser?.banner_url || rawUser?.bannerUrl || null,
-        mainPosition: rawUser?.main_position || rawUser?.mainPosition || "MID",
+        mainPosition: rawUser?.main_position || rawUser?.mainPosition || null,
         planType: rawUser?.plan_type || rawUser?.planType || "FREE",
       };
       setUser(formattedUser);
@@ -406,6 +407,10 @@ export default function ProfileScreen() {
   }, [showAlert, uploadImage]);
 
   const handleSaveProfile = useCallback(async () => {
+    if (editType === "POSITION" && !tempValue?.trim()) {
+      showAlert("Posición requerida", "Selecciona tu posición en la cancha para guardar.");
+      return;
+    }
     try {
       setLoading(true);
       const payload: any = {};
@@ -563,7 +568,7 @@ export default function ProfileScreen() {
       photoUrl: user.photoUrl ?? null,
       name: [user.name, user.surname].filter(Boolean).join(" ").trim() || "Usuario",
       username: user.username || "usuario",
-      mainPosition: user.mainPosition || "Posición no definida",
+      mainPosition: formatPositionForDisplay(user.mainPosition),
       isPro: user.planType === "PRO",
       frameSource: activeFrame.source ?? null,
       frameColor: frameColorResolved,
@@ -627,6 +632,22 @@ export default function ProfileScreen() {
           activeAccent={activeAccent}
           uploading={uploading}
           onPickImage={handlePickImage}
+          onEditName={() => {
+            setEditModalVisible(true);
+            setEditType("NAME");
+            setTempName(user?.name ?? "");
+            setTempSurname(user?.surname ?? "");
+          }}
+          onEditBio={() => {
+            setEditModalVisible(true);
+            setEditType("BIO");
+            setTempValue(user?.bio ?? "");
+          }}
+          onEditPosition={() => {
+            setEditModalVisible(true);
+            setEditType("POSITION");
+            setTempValue(user?.mainPosition ?? "");
+          }}
         />
         <ShareProfileButton accentColor={activeAccent} onShare={handleShare} />
 

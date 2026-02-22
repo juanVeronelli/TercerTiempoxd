@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   StyleSheet,
   Text,
   TextInput,
   View,
+  FlatList,
   ScrollView,
   TouchableOpacity,
   Platform,
@@ -23,10 +24,10 @@ import { Colors } from "../../../../src/constants/Colors";
 import apiClient from "../../../../src/api/apiClient";
 import { LoadingOverlay } from "../../../../src/components/ui/LoadingOverlay";
 import { ScreenHeader } from "../../../../src/components/ui/ScreenHeader";
-import { UserAvatar } from "../../../../src/components/ui/UserAvatar";
 import { AppCard } from "../../../../src/components/ui/AppCard";
 import { DateTimePickerButton } from "../../../../src/components/ui/DateTimePickerButton";
 import { useCustomAlert } from "../../../../src/context/AlertContext";
+import { UserAvatar } from "../../../../src/components/ui/UserAvatar";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -61,6 +62,147 @@ function getInitialDate(): Date {
   return d;
 }
 
+type CreateMatchHeaderProps = {
+  form: CreateFormState;
+  touched: Record<string, boolean>;
+  errors: Record<string, string>;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  updateForm: (u: Partial<CreateFormState>) => void;
+  setTouched: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  handleRivalTypeChange: (t: "INTERNAL" | "EXTERNAL") => void;
+};
+
+const CreateMatchHeader = React.memo(function CreateMatchHeader({
+  form,
+  touched,
+  errors,
+  searchQuery,
+  onSearchChange,
+  updateForm,
+  setTouched,
+  handleRivalTypeChange,
+}: CreateMatchHeaderProps) {
+  return (
+    <>
+      <View style={styles.sectionHeaderBox}>
+        <Text style={styles.sectionHeader}>DETALLES DEL ENCUENTRO</Text>
+      </View>
+      <AppCard style={styles.cardForm}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>UBICACIÓN</Text>
+          <View
+            style={[
+              styles.inputContainer,
+              touched.location && errors.location && styles.inputError,
+            ]}
+          >
+            <Ionicons name="location-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              value={form.location}
+              onChangeText={(t) => updateForm({ location: t })}
+              onBlur={() => setTouched((p) => ({ ...p, location: true }))}
+              placeholder="Ej: Canchas del Centro"
+              placeholderTextColor="#4B5563"
+              testID="e2e-match-create-location"
+            />
+          </View>
+          {touched.location && errors.location ? (
+            <Text style={styles.helperError}>{errors.location}</Text>
+          ) : null}
+        </View>
+        <DateTimePickerButton
+          value={form.dateTime}
+          onChange={(d) => updateForm({ dateTime: d })}
+          onConfirm={() => setTouched((p) => ({ ...p, dateTime: true }))}
+          minimumDate={new Date()}
+          label="FECHA Y HORA"
+          error={touched.dateTime ? errors.dateTime : undefined}
+          testID="e2e-match-create-datetime"
+        />
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>PRECIO POR JUGADOR</Text>
+          <View
+            style={[
+              styles.inputContainer,
+              touched.price && errors.price && styles.inputError,
+            ]}
+          >
+            <Text style={styles.currencyPrefix}>$</Text>
+            <TextInput
+              style={styles.input}
+              value={form.price}
+              onChangeText={(t) => updateForm({ price: t })}
+              onBlur={() => setTouched((p) => ({ ...p, price: true }))}
+              placeholder="0"
+              placeholderTextColor="#4B5563"
+              keyboardType="numeric"
+              testID="e2e-match-create-price"
+            />
+          </View>
+          {touched.price && errors.price ? (
+            <Text style={styles.helperError}>{errors.price}</Text>
+          ) : null}
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>MODALIDAD</Text>
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, form.rivalType === "INTERNAL" && styles.toggleBtnActive]}
+              onPress={() => handleRivalTypeChange("INTERNAL")}
+            >
+              <Text style={[styles.toggleText, form.rivalType === "INTERNAL" && { color: "white" }]}>
+                INTERNO
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, form.rivalType === "EXTERNAL" && styles.toggleBtnActive]}
+              onPress={() => handleRivalTypeChange("EXTERNAL")}
+            >
+              <Text style={[styles.toggleText, form.rivalType === "EXTERNAL" && { color: "white" }]}>
+                EXTERNO
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </AppCard>
+      <View style={styles.sectionHeaderBox}>
+        <Text style={styles.sectionHeader}>CONVOCAR JUGADORES</Text>
+      </View>
+      <View style={styles.legendContainer}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: "#3B82F6" }]} />
+          <Text style={styles.legendText}>
+            {form.rivalType === "EXTERNAL" ? "CONVOCADO" : "EQUIPO A (LOCAL)"}
+          </Text>
+        </View>
+        {form.rivalType === "INTERNAL" && (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: "#EF4444" }]} />
+            <Text style={styles.legendText}>EQUIPO B (VISITA)</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.searchWrap}>
+        <Ionicons name="search" size={18} color="#6B7280" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={onSearchChange}
+          placeholder="Buscar por nombre..."
+          placeholderTextColor="#6B7280"
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => onSearchChange("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close-circle" size={18} color="#6B7280" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </>
+  );
+});
+
 export default function CreateMatchScreen() {
   const router = useRouter();
   const { leagueId } = useGlobalSearchParams();
@@ -78,6 +220,7 @@ export default function CreateMatchScreen() {
   >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState("");
 
   const updateForm = (updates: Partial<CreateFormState>) => {
     setForm((prev) => ({ ...prev, ...updates }));
@@ -204,10 +347,120 @@ export default function CreateMatchScreen() {
   const selectedCount = players.filter((p) => p.status !== "NONE").length;
   const canSubmit = formValid && selectedCount > 0 && !isSubmitting;
 
+  const filteredPlayers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return players;
+    return players.filter((p) => (p.name || "").toLowerCase().includes(q));
+  }, [players, searchQuery]);
+
+  const listHeaderElement = (
+    <CreateMatchHeader
+      form={form}
+      touched={touched}
+      errors={errors}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      updateForm={updateForm}
+      setTouched={setTouched}
+      handleRivalTypeChange={handleRivalTypeChange}
+    />
+  );
+
+  const ListFooterComponent = useCallback(
+    () => (
+      <>
+        <View style={styles.aiCardContainer}>
+          <View style={styles.aiComingSoonBadge}>
+            <Ionicons name="hourglass-outline" size={10} color={AI_CARD_THEME.gold} />
+            <Text style={styles.aiComingSoonText}>PRÓXIMAMENTE</Text>
+          </View>
+          <View style={styles.aiContentRow}>
+            <View style={styles.aiIconContainer}>
+              <Ionicons name="hardware-chip" size={30} color={AI_CARD_THEME.gold} />
+              <View style={styles.aiSparkle}>
+                <MaterialCommunityIcons name="star-four-points" size={12} color="white" />
+              </View>
+            </View>
+            <View style={styles.aiTextContainer}>
+              <Text style={styles.aiCardTitle}>
+                IA TEAM BUILDER <Text style={{ color: AI_CARD_THEME.gold, fontWeight: "900" }}>PRO</Text>
+              </Text>
+              <Text style={styles.aiCardDescription}>
+                Únete al plan PRO para que la IA arme los equipos estadísticamente perfectos según tus gustos.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.aiTechGrid} />
+          <View style={styles.aiTechCircle} />
+        </View>
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.createButton, !canSubmit && styles.createButtonDisabled]}
+            onPress={handleCreateMatch}
+            disabled={!canSubmit}
+            activeOpacity={0.8}
+            testID="e2e-match-create-submit"
+          >
+            <Ionicons name="checkmark-circle" size={24} color={Colors.background} style={{ marginRight: 8 }} />
+            <Text style={styles.createButtonText}>
+              {isSubmitting ? "CREANDO…" : "CONFIRMAR PARTIDO"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ height: 40 }} />
+      </>
+    ),
+    [canSubmit, isSubmitting, handleCreateMatch]
+  );
+
+  const PLAYER_ROW_HEIGHT = 48;
+  const VISIBLE_ROWS = 10;
+  const playerListHeight = PLAYER_ROW_HEIGHT * VISIBLE_ROWS;
+
+  const renderPlayerRow = useCallback(
+    (item: typeof players[0], index: number) => {
+      const isLocal = item.status === "LOCAL";
+      const isVisita = item.status === "VISITANTE";
+      const statusColor = isLocal
+        ? form.rivalType === "EXTERNAL"
+          ? "#10B981"
+          : "#3B82F6"
+        : isVisita
+          ? "#EF4444"
+          : "#374151";
+      const isSelected = isLocal || isVisita;
+      return (
+        <TouchableOpacity
+          key={item.id}
+          style={[styles.playerRow, isSelected && { backgroundColor: `${statusColor}18` }]}
+          onPress={() => togglePlayerStatus(item.id)}
+          activeOpacity={0.7}
+          testID={index === 0 ? "e2e-match-create-first-player" : undefined}
+        >
+          <UserAvatar imageUrl={item.photo} name={item.name} size={28} />
+          <Text
+            style={[styles.playerRowName, isSelected && { color: "white", fontWeight: "700" }]}
+            numberOfLines={1}
+          >
+            {item.name}
+          </Text>
+          <View style={[styles.checkWrap, isSelected && { borderColor: statusColor }]}>
+            {isSelected ? (
+              <Ionicons name="checkmark" size={14} color={statusColor} />
+            ) : (
+              <View />
+            )}
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [form.rivalType, togglePlayerStatus]
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <LoadingOverlay visible={isSubmitting} message="Creando partido..." />
-      <ScreenHeader title="NUEVO PARTIDO" icon="soccer" />
+      <ScreenHeader title="NUEVO PARTIDO" showBack />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -219,256 +472,18 @@ export default function CreateMatchScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.sectionHeaderBox}>
-            <Text style={styles.sectionHeader}>DETALLES DEL ENCUENTRO</Text>
-          </View>
-
-          <AppCard style={styles.cardForm}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>UBICACIÓN</Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  touched.location && errors.location && styles.inputError,
-                ]}
-              >
-                <Ionicons
-                  name="location-outline"
-                  size={20}
-                  color="#9CA3AF"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  value={form.location}
-                  onChangeText={(t) => updateForm({ location: t })}
-                  onBlur={() => setTouched((p) => ({ ...p, location: true }))}
-                  placeholder="Ej: Canchas del Centro"
-                  placeholderTextColor="#4B5563"
-                  testID="e2e-match-create-location"
-                />
-              </View>
-              {touched.location && errors.location ? (
-                <Text style={styles.helperError}>{errors.location}</Text>
-              ) : null}
-            </View>
-
-            <DateTimePickerButton
-              value={form.dateTime}
-              onChange={(d) => updateForm({ dateTime: d })}
-              onConfirm={() => setTouched((p) => ({ ...p, dateTime: true }))}
-              minimumDate={new Date()}
-              label="FECHA Y HORA"
-              error={touched.dateTime ? errors.dateTime : undefined}
-              testID="e2e-match-create-datetime"
-            />
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>PRECIO POR JUGADOR</Text>
-              <View
-                style={[
-                  styles.inputContainer,
-                  touched.price && errors.price && styles.inputError,
-                ]}
-              >
-                <Text style={styles.currencyPrefix}>$</Text>
-                <TextInput
-                  style={styles.input}
-                  value={form.price}
-                  onChangeText={(t) => updateForm({ price: t })}
-                  onBlur={() => setTouched((p) => ({ ...p, price: true }))}
-                  placeholder="0"
-                  placeholderTextColor="#4B5563"
-                  keyboardType="numeric"
-                  testID="e2e-match-create-price"
-                />
-              </View>
-              {touched.price && errors.price ? (
-                <Text style={styles.helperError}>{errors.price}</Text>
-              ) : null}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>MODALIDAD</Text>
-              <View style={styles.toggleContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleBtn,
-                    form.rivalType === "INTERNAL" && styles.toggleBtnActive,
-                  ]}
-                  onPress={() => handleRivalTypeChange("INTERNAL")}
-                >
-                  <Text
-                    style={[
-                      styles.toggleText,
-                      form.rivalType === "INTERNAL" && { color: "white" },
-                    ]}
-                  >
-                    INTERNO
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleBtn,
-                    form.rivalType === "EXTERNAL" && styles.toggleBtnActive,
-                  ]}
-                  onPress={() => handleRivalTypeChange("EXTERNAL")}
-                >
-                  <Text
-                    style={[
-                      styles.toggleText,
-                      form.rivalType === "EXTERNAL" && { color: "white" },
-                    ]}
-                  >
-                    EXTERNO
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </AppCard>
-
-          <View style={styles.sectionHeaderBox}>
-            <Text style={styles.sectionHeader}>CONVOCAR JUGADORES</Text>
-          </View>
-          <View style={styles.legendContainer}>
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendDot, { backgroundColor: "#3B82F6" }]}
-              />
-              <Text style={styles.legendText}>
-                {form.rivalType === "EXTERNAL"
-                  ? "CONVOCADO"
-                  : "EQUIPO A (LOCAL)"}
-              </Text>
-            </View>
-            {form.rivalType === "INTERNAL" && (
-              <View style={styles.legendItem}>
-                <View
-                  style={[styles.legendDot, { backgroundColor: "#EF4444" }]}
-                />
-                <Text style={styles.legendText}>EQUIPO B (VISITA)</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.gridContainer}>
-            {players.map((player, index) => {
-              const isLocal = player.status === "LOCAL";
-              const isVisita = player.status === "VISITANTE";
-              const statusColor = isLocal
-                ? form.rivalType === "EXTERNAL"
-                  ? "#10B981"
-                  : "#3B82F6"
-                : isVisita
-                  ? "#EF4444"
-                  : "#374151";
-              const statusText = isLocal
-                ? form.rivalType === "EXTERNAL"
-                  ? "JUEGA"
-                  : "EQUIPO A"
-                : isVisita
-                  ? "EQUIPO B"
-                  : "NO CITA";
-              return (
-                <TouchableOpacity
-                  key={player.id}
-                  style={[
-                    styles.playerCard,
-                    (isLocal || isVisita) && {
-                      borderColor: statusColor,
-                      backgroundColor: `${statusColor}1A`,
-                    },
-                  ]}
-                  onPress={() => togglePlayerStatus(player.id)}
-                  activeOpacity={0.7}
-                  testID={index === 0 ? "e2e-match-create-first-player" : undefined}
-                >
-                  <View
-                    style={[
-                      (isLocal || isVisita) && {
-                        borderColor: statusColor,
-                        borderWidth: 2,
-                        borderRadius: 20,
-                        padding: 0,
-                      },
-                    ]}
-                  >
-                    <UserAvatar
-                      imageUrl={player.photo}
-                      name={player.name}
-                      size={40}
-                    />
-                  </View>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.playerName,
-                      (isLocal || isVisita) && {
-                        color: "white",
-                        fontWeight: "bold",
-                      },
-                    ]}
-                  >
-                    {player.name}
-                  </Text>
-                  <Text style={[styles.playerStatus, { color: statusColor }]}>
-                    {statusText}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={styles.aiCardContainer}>
-            <View style={styles.aiComingSoonBadge}>
-              <Ionicons name="hourglass-outline" size={10} color={AI_CARD_THEME.gold} />
-              <Text style={styles.aiComingSoonText}>PRÓXIMAMENTE</Text>
-            </View>
-            <View style={styles.aiContentRow}>
-              <View style={styles.aiIconContainer}>
-                <Ionicons name="hardware-chip" size={30} color={AI_CARD_THEME.gold} />
-                <View style={styles.aiSparkle}>
-                  <MaterialCommunityIcons name="star-four-points" size={12} color="white" />
-                </View>
-              </View>
-              <View style={styles.aiTextContainer}>
-                <Text style={styles.aiCardTitle}>
-                  IA TEAM BUILDER{" "}
-                  <Text style={{ color: AI_CARD_THEME.gold, fontWeight: "900" }}>PRO</Text>
-                </Text>
-                <Text style={styles.aiCardDescription}>
-                  Únete al plan PRO para que la IA arme los equipos
-                  estadísticamente perfectos según tus gustos.
-                </Text>
-              </View>
-            </View>
-            <View style={styles.aiTechGrid} />
-            <View style={styles.aiTechCircle} />
-          </View>
-
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[
-                styles.createButton,
-                !canSubmit && styles.createButtonDisabled,
-              ]}
-              onPress={handleCreateMatch}
-              disabled={!canSubmit}
-              activeOpacity={0.8}
-              testID="e2e-match-create-submit"
+          {listHeaderElement}
+          <View style={[styles.playerListBox, { height: playerListHeight }]}>
+            <ScrollView
+              style={styles.playerListScroll}
+              contentContainerStyle={styles.playerListContent}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled
             >
-              <Ionicons
-                name="checkmark-circle"
-                size={24}
-                color={Colors.background}
-                style={{ marginRight: 8 }}
-              />
-              <Text style={styles.createButtonText}>
-                {isSubmitting ? "CREANDO…" : "CONFIRMAR PARTIDO"}
-              </Text>
-            </TouchableOpacity>
+              {filteredPlayers.map((item, index) => renderPlayerRow(item, index))}
+            </ScrollView>
           </View>
-          <View style={{ height: 40 }} />
+          {ListFooterComponent()}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -546,6 +561,57 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center" },
   legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
   legendText: { color: "#9CA3AF", fontSize: 10, fontWeight: "700" },
+  playerListBox: {
+    marginBottom: 8,
+  },
+  playerListScroll: {
+    flexGrow: 0,
+  },
+  playerListContent: {
+    paddingBottom: 8,
+  },
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#111827",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#374151",
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    height: 42,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: {
+    flex: 1,
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  playerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  playerRowName: {
+    flex: 1,
+    marginLeft: 10,
+    color: "#D1D5DB",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  checkWrap: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#4B5563",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   gridContainer: {
     flexDirection: "row",
     flexWrap: "wrap",

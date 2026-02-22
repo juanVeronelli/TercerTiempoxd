@@ -21,6 +21,7 @@ import { Skeleton } from "../../../src/components/ui/Skeleton";
 import apiClient from "../../../src/api/apiClient";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { formatPositionForDisplay } from "../../../src/constants/Positions";
 import { PRESET_BANNERS, AVATAR_FRAMES } from "../../../src/components/profile/profileConstants";
 import type { AvatarFramePreset } from "../../../src/components/profile/profileConstants";
 
@@ -79,7 +80,7 @@ export default function PublicProfileScreen() {
         name: firstName || "Usuario",
         surname: restName.join(" "),
         bannerUrl: rawUser.banner_url || rawUser.bannerUrl || null,
-        mainPosition: rawUser.main_position || rawUser.mainPosition || "MID",
+        mainPosition: rawUser.main_position || rawUser.mainPosition || null,
         planType: rawUser.plan_type || rawUser.planType || "FREE",
       };
 
@@ -266,7 +267,7 @@ export default function PublicProfileScreen() {
                 style={{ marginRight: 5 }}
               />
               <Text style={[styles.positionText, { color: activeAccent }]}>
-                {user?.mainPosition || "Posición no definida"}
+                {formatPositionForDisplay(user?.mainPosition)}
               </Text>
             </View>
 

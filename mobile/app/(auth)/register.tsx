@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../src/constants/Colors";
 import { useCustomAlert } from "../../src/context/AlertContext";
 import { authService } from "../../src/services/authService";
+import { PLAYER_POSITIONS } from "../../src/constants/Positions";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordsMatch, setPasswordsMatch] = useState(true);
+  const [mainPosition, setMainPosition] = useState("");
   const [acceptsMarketing, setAcceptsMarketing] = useState(false);
   const [acceptsPrivacy, setAcceptsPrivacy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +37,14 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     if (!fullName || !username || !email || !password || !confirmPassword) {
       showAlert("Error", "Por favor completa todos los campos.");
+      return;
+    }
+
+    if (!mainPosition) {
+      showAlert(
+        "Posición requerida",
+        "Selecciona tu posición en la cancha para continuar."
+      );
       return;
     }
 
@@ -60,6 +70,7 @@ export default function RegisterScreen() {
         email,
         password,
         confirmPassword,
+        mainPosition,
         acceptsMarketing,
       });
 
@@ -209,6 +220,33 @@ export default function RegisterScreen() {
                   color={Colors.textSecondary}
                 />
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* POSITION */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>POSICIÓN EN LA CANCHA</Text>
+            <View style={styles.positionRow}>
+              {PLAYER_POSITIONS.map((pos) => (
+                <TouchableOpacity
+                  key={pos}
+                  style={[
+                    styles.positionChip,
+                    mainPosition === pos && styles.positionChipSelected,
+                  ]}
+                  onPress={() => setMainPosition(pos)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.positionChipText,
+                      mainPosition === pos && styles.positionChipTextSelected,
+                    ]}
+                  >
+                    {pos}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
@@ -461,5 +499,30 @@ const styles = StyleSheet.create({
   linkText: {
     color: Colors.accentGold,
     textDecorationLine: "underline",
+  },
+  positionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  positionChip: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    backgroundColor: Colors.surfaceDark,
+  },
+  positionChipSelected: {
+    borderColor: Colors.accentGold,
+    backgroundColor: Colors.accentGold + "20",
+  },
+  positionChipText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  positionChipTextSelected: {
+    color: Colors.accentGold,
   },
 });

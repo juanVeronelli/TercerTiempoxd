@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
+import { formatPositionForDisplay } from "../../constants/Positions";
 import { UserAvatar } from "../ui/UserAvatar";
 
 const CARD_WIDTH = 340;
@@ -144,7 +145,7 @@ export function ShareableProfileCard({
                 style={{ marginRight: 4 }}
               />
               <Text style={[styles.positionText, { color: accentColor }]}>
-                {mainPosition || "Posición no definida"}
+                {formatPositionForDisplay(mainPosition)}
               </Text>
             </View>
           </View>

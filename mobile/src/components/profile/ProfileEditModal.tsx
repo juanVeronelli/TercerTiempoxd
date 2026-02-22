@@ -10,6 +10,7 @@ import {
   Platform,
 } from "react-native";
 import { PROFILE_THEME } from "./profileConstants";
+import { PLAYER_POSITIONS } from "../../constants/Positions";
 
 export type EditType = "NAME" | "BIO" | "POSITION" | null;
 
@@ -82,11 +83,12 @@ export function ProfileEditModal({
               placeholderTextColor="#999"
               multiline
               maxLength={150}
+              autoFocus
             />
           )}
           {editType === "POSITION" && (
             <View style={styles.positionSelector}>
-              {["GK", "DEF", "MID", "FWD"].map((pos) => (
+              {PLAYER_POSITIONS.map((pos) => (
                 <TouchableOpacity
                   key={pos}
                   style={[
@@ -100,6 +102,7 @@ export function ProfileEditModal({
                 >
                   <Text
                     style={[styles.positionOptionText, tempValue === pos && { color: "white" }]}
+                    numberOfLines={1}
                   >
                     {pos}
                   </Text>
@@ -111,7 +114,15 @@ export function ProfileEditModal({
             <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
               <Text style={styles.cancelButtonText}>CANCELAR</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.saveButton, { backgroundColor: activeAccent }]} onPress={onSave}>
+            <TouchableOpacity
+              style={[
+                styles.saveButton,
+                { backgroundColor: activeAccent },
+                editType === "POSITION" && !tempValue && styles.saveButtonDisabled,
+              ]}
+              onPress={onSave}
+              disabled={editType === "POSITION" && !tempValue}
+            >
               <Text style={styles.saveButtonText}>GUARDAR</Text>
             </TouchableOpacity>
           </View>
@@ -157,14 +168,15 @@ const styles = StyleSheet.create({
   },
   positionSelector: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "space-between",
+    gap: 10,
     marginBottom: 24,
   },
   positionOption: {
-    flex: 1,
+    minWidth: "47%",
     alignItems: "center",
     paddingVertical: 14,
-    marginHorizontal: 4,
     borderRadius: 12,
     backgroundColor: PROFILE_THEME.bg,
     borderWidth: 1,
@@ -174,6 +186,9 @@ const styles = StyleSheet.create({
     color: PROFILE_THEME.textSecondary,
     fontWeight: "bold",
     fontSize: 12,
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
   },
   buttons: {
     flexDirection: "row",

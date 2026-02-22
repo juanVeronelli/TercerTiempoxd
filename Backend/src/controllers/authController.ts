@@ -8,6 +8,7 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
 } from "../services/EmailService.js";
+import { isValidPosition } from "../constants/positions.js";
 
 /**
  * Handles the registration of a new user
@@ -20,6 +21,7 @@ export const register = async (req: Request, res: Response) => {
       confirmPassword,
       username,
       fullName,
+      mainPosition,
       acceptsMarketing,
     } = req.body;
 
@@ -57,6 +59,12 @@ export const register = async (req: Request, res: Response) => {
         .json({ error: "User already exists with this email or username" });
     }
 
+    if (mainPosition !== undefined && mainPosition !== null && mainPosition !== "" && !isValidPosition(mainPosition)) {
+      return res.status(400).json({
+        error: "Posición inválida. Debe ser: Arquero, Defensor, Mediocampista o Delantero.",
+      });
+    }
+
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
@@ -68,17 +76,22 @@ export const register = async (req: Request, res: Response) => {
           .toString()
           .padStart(6, "0");
 
+    const createData: Record<string, unknown> = {
+      email,
+      username,
+      full_name: fullName,
+      password_hash: hashedPassword,
+      plan_type: "FREE",
+      isVerified: false,
+      verificationCode,
+      acceptsMarketing: !!acceptsMarketing,
+    };
+    if (mainPosition && mainPosition.trim()) {
+      createData.main_position = mainPosition.trim();
+    }
+
     const newUser = await prisma.users.create({
-      data: {
-        email,
-        username,
-        full_name: fullName,
-        password_hash: hashedPassword,
-        plan_type: "FREE",
-        isVerified: false,
-        verificationCode,
-        acceptsMarketing: !!acceptsMarketing,
-      },
+      data: createData as Parameters<typeof prisma.users.create>[0]["data"],
       select: {
         id: true,
         username: true,
