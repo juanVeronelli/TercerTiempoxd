@@ -217,7 +217,7 @@ export default function AchievementsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={["bottom"]}>
         <StatusBar barStyle="light-content" backgroundColor={THEME.bg} />
-        <ScreenHeader title="Logros" showNotificationBell={false} />
+        <ScreenHeader title="Logros" showBack onBackPress={() => router.back()} showBell={false} />
         <View style={styles.content}>
           <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 12 }} />
           <Skeleton width="100%" height={100} borderRadius={16} />
@@ -229,7 +229,7 @@ export default function AchievementsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <StatusBar barStyle="light-content" backgroundColor={THEME.bg} />
-      <ScreenHeader title="Logros" onBack={() => router.back()} />
+      <ScreenHeader title="Logros" showBack onBackPress={() => router.back()} />
 
       {/* Segmented Control */}
       <View style={styles.segmentedWrap}>

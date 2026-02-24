@@ -29,13 +29,10 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // --- LOGICA DE DATOS ---
   const fetchUserData = async () => {
     try {
       const response = await apiClient.get("/auth/me");
-
       const rawUser = response.data.user;
-
       setUserData({
         ...rawUser,
         photoUrl:
@@ -44,9 +41,7 @@ export default function HomeScreen() {
           rawUser.profile_photo_url ||
           null,
       });
-
-      // Importante: Asegúrate que el backend de /auth/me incluya el campo 'role' en cada liga
-      setUserLeagues(response.data.leagues);
+      setUserLeagues(response.data.leagues ?? []);
     } catch (error) {
       console.error("Error fetching user:", error);
       showAlert("Error", "No pudimos cargar tu perfil.");
@@ -56,11 +51,7 @@ export default function HomeScreen() {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchUserData();
-    }, []),
-  );
+  useFocusEffect(useCallback(() => { fetchUserData(); }, []));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -70,17 +61,15 @@ export default function HomeScreen() {
   const handleLogout = async () => {
     showAlert("Cerrar Sesión", "¿Estás seguro?", [
       { text: "Cancelar", style: "cancel" },
-        {
-          text: "Salir",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await PurchaseManager.logOut();
-            } catch {}
-            await SecureStore.deleteItemAsync("userToken");
-            router.replace("/(auth)/login");
-          },
+      {
+        text: "Salir",
+        style: "destructive",
+        onPress: async () => {
+          try { await PurchaseManager.logOut(); } catch {}
+          await SecureStore.deleteItemAsync("userToken");
+          router.replace("/(auth)/login");
         },
+      },
     ]);
   };
 
@@ -99,7 +88,6 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
 
-      {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity
@@ -114,7 +102,6 @@ export default function HomeScreen() {
               />
             </View>
           </TouchableOpacity>
-
           <View>
             <Text style={styles.headerSubtitle}>BIENVENIDO</Text>
             <Text style={styles.headerTitle}>
@@ -122,7 +109,6 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
-
         <TouchableOpacity style={styles.iconButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={22} color={Colors.status.error} />
         </TouchableOpacity>
@@ -141,45 +127,28 @@ export default function HomeScreen() {
       >
         <View style={styles.sectionHeaderBox}>
           <Text style={styles.sectionHeader}>MIS COMPETICIONES</Text>
-          <View
-            style={[
-              styles.planBadge,
-              isPro ? styles.badgePro : styles.badgeFree,
-            ]}
-          >
-            <Text
-              style={[
-                styles.planText,
-                isPro ? styles.textPro : styles.textFree,
-              ]}
-            >
+          <View style={[styles.planBadge, isPro ? styles.badgePro : styles.badgeFree]}>
+            <Text style={[styles.planText, isPro ? styles.textPro : styles.textFree]}>
               PLAN {userData?.planType || "FREE"}
             </Text>
           </View>
         </View>
 
-        {/* GRID DE LIGAS */}
         <View style={styles.grid}>
-          {slots.map((index) => {
-            const league = userLeagues[index];
-            const isLocked = !isPro && index > 0;
+          {slots.map((idx) => {
+            const league = userLeagues[idx];
+            const isLocked = !isPro && idx > 0;
 
             if (isLocked) {
               return (
                 <TouchableOpacity
-                  key={index}
+                  key={idx}
                   style={[styles.card, styles.lockedCard]}
                   activeOpacity={0.9}
-                  onPress={() =>
-                    showAlert("Premium", "Mejora a PRO para más ligas.")
-                  }
+                  onPress={() => showAlert("Premium", "Mejora a PRO para más ligas.")}
                 >
                   <View style={styles.lockedIconCircle}>
-                    <Ionicons
-                      name="lock-closed"
-                      size={24}
-                      color={Colors.accentGold}
-                    />
+                    <Ionicons name="lock-closed" size={24} color={Colors.accentGold} />
                   </View>
                   <Text style={styles.lockedText}>SLOT PRO</Text>
                 </TouchableOpacity>
@@ -187,9 +156,7 @@ export default function HomeScreen() {
             }
 
             if (league) {
-              // AQUÍ USAMOS LA LÓGICA DINÁMICA DE ROL
               const roleConfig = getRoleConfig(league.role);
-
               return (
                 <TouchableOpacity
                   key={league.id}
@@ -207,13 +174,10 @@ export default function HomeScreen() {
                       {league.name.charAt(0).toUpperCase()}
                     </Text>
                   </View>
-
                   <View style={styles.cardContent}>
                     <Text style={styles.leagueName} numberOfLines={2}>
                       {league.name}
                     </Text>
-
-                    {/* BADGE DE ROL DINÁMICO SEGÚN ROL DE LA DB */}
                     <View
                       style={[
                         styles.roleBadge,
@@ -229,9 +193,7 @@ export default function HomeScreen() {
                         color={roleConfig.color}
                         style={{ marginRight: 4 }}
                       />
-                      <Text
-                        style={[styles.roleText, { color: roleConfig.color }]}
-                      >
+                      <Text style={[styles.roleText, { color: roleConfig.color }]}>
                         {roleConfig.label}
                       </Text>
                     </View>
@@ -242,37 +204,35 @@ export default function HomeScreen() {
 
             return (
               <TouchableOpacity
-                key={`empty-${index}`}
+                key={`empty-${idx}`}
                 style={[styles.card, styles.emptyCard]}
                 onPress={() => router.push("/(main)/create-league")}
               >
-                <Ionicons
-                  name="add-circle-outline"
-                  size={32}
-                  color={Colors.textSecondary}
-                />
+                <Ionicons name="add-circle-outline" size={32} color={Colors.textSecondary} />
                 <Text style={styles.emptyText}>CREAR / UNIRSE</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Native Ad (solo usuarios FREE; PRO no ven anuncios) */}
-        <NativeAdCardWrapper style={styles.adCard} isPro={isPro} />
+        <TouchableOpacity
+          style={styles.goToProfileButton}
+          onPress={() => router.push("/(main)/league/profile")}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="person-outline" size={20} color={Colors.primary} />
+          <Text style={styles.goToProfileButtonText}>Ir a mi perfil</Text>
+        </TouchableOpacity>
 
+        <NativeAdCardWrapper style={styles.adCard} isPro={isPro} />
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* BANNER PRO */}
       {!isPro && (
         <View style={styles.proBanner}>
           <View style={styles.proContent}>
             <View style={styles.proIconBox}>
-              <MaterialCommunityIcons
-                name="crown"
-                size={22}
-                color={Colors.accentGold}
-              />
+              <MaterialCommunityIcons name="crown" size={22} color={Colors.accentGold} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.proTitle}>HAZTE PRO</Text>
@@ -303,7 +263,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: { paddingHorizontal: 20 },
   adCard: { marginTop: 24, marginBottom: 8 },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -347,7 +306,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderLight,
   },
-
   sectionHeaderBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -361,14 +319,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-
   planBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   badgeFree: { backgroundColor: "rgba(156, 163, 175, 0.15)" },
   badgePro: { backgroundColor: "rgba(245, 158, 11, 0.15)" },
   planText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
   textFree: { color: Colors.textSecondary },
   textPro: { color: Colors.accentGold },
-
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -386,7 +342,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   leagueIconCircle: {
     width: 50,
     height: 50,
@@ -409,7 +364,6 @@ const styles = StyleSheet.create({
     height: 36,
     textAlignVertical: "center",
   },
-
   roleBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -419,7 +373,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   roleText: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
-
   lockedCard: { backgroundColor: Colors.surfaceDark, opacity: 0.9 },
   lockedIconCircle: {
     width: 40,
@@ -436,7 +389,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
-
   emptyCard: {
     backgroundColor: "transparent",
     borderStyle: "dashed",
@@ -449,7 +401,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
     letterSpacing: 0.5,
   },
-
+  goToProfileButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 8,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary + "15",
+  },
+  goToProfileButtonText: {
+    color: Colors.primary,
+    fontSize: 15,
+    fontWeight: "700",
+  },
   proBanner: {
     position: "absolute",
     bottom: 30,

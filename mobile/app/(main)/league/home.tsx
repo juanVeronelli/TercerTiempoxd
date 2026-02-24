@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   StyleSheet,
   Text,
@@ -16,16 +16,20 @@ import { useCurrentUser } from "../../../src/hooks/useCurrentUser";
 import { useSafeFetch } from "../../../src/hooks/useSafeFetch";
 import { Colors } from "../../../src/constants/Colors";
 import { useCustomAlert } from "../../../src/context/AlertContext";
-import { ScreenHeader } from "../../../src/components/ui/ScreenHeader";
+import { LeagueHomeHeader } from "../../../src/components/ui/LeagueHomeHeader";
 import { PredictionsBanner } from "../../../src/components/PredictionsBanner";
 import { MatchActionButtons } from "../../../src/components/MatchActionButtons";
 import { AINewsTeaser } from "../../../src/components/AINewsTeaser";
-import { DuelCard } from "../../../src/components/DuelCard"; // <--- Importado
+import { DuelCard } from "../../../src/components/DuelCard";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { useLeagueContext } from "../../../src/context/LeagueContext";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import axios from "axios";
 import apiClient from "../../../src/api/apiClient";
+import { CoachmarkModal } from "../../../src/components/coachmark/CoachmarkModal";
+import { CoachmarkHighlight } from "../../../src/components/coachmark/CoachmarkHighlight";
+import { useCoachmark, useCoachmarkReady } from "../../../src/hooks/useCoachmark";
+import { CoachmarkKeys } from "../../../src/constants/CoachmarkKeys";
 
 // Importamos los componentes
 import { NextMatchCard } from "../../../src/components/NextMatchCard";
@@ -102,39 +106,41 @@ const StatsSummaryCard = ({
         <View style={styles.verticalDivider} />
 
         <View style={styles.formColumn}>
-          <Text style={styles.kpiLabel}>RACHA ACTUAL</Text>
+          <Text style={styles.kpiLabel}>RACHA</Text>
           <View style={styles.formBubbles}>
             {form.length > 0 ? (
-              form.map((res: string, i: number) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.formBubble,
-                    res === "W"
-                      ? styles.bgW
-                      : res === "L"
-                        ? styles.bgL
-                        : styles.bgD,
-                  ]}
-                >
-                  <Text
+              form.map((res: string, i: number) => {
+                const isW = res === "W";
+                const isL = res === "L";
+                const letter = isW ? "G" : isL ? "P" : "E";
+                return (
+                  <View
+                    key={i}
                     style={[
-                      styles.formText,
-                      res === "W"
-                        ? styles.textW
-                        : res === "L"
-                          ? styles.textL
-                          : styles.textD,
+                      styles.formBubble,
+                      isW ? styles.bgW : isL ? styles.bgL : styles.bgD,
                     ]}
                   >
-                    {res === "W" ? "V" : res === "L" ? "D" : "E"}
-                  </Text>
-                </View>
-              ))
+                    <Text
+                      style={[
+                        styles.formText,
+                        isW ? styles.textW : isL ? styles.textL : styles.textD,
+                      ]}
+                    >
+                      {letter}
+                    </Text>
+                  </View>
+                );
+              })
             ) : (
               <Text style={styles.noStatsText}>Sin partidos</Text>
             )}
           </View>
+          {form.length > 0 && (
+            <Text style={styles.formHint}>
+              Últimos {form.length} partido{form.length !== 1 ? "s" : ""}
+            </Text>
+          )}
           <Text style={styles.tapHint}>Ver estadísticas</Text>
         </View>
       </View>
@@ -160,6 +166,35 @@ const SQUAD_FRAME_WIDTHS: Record<string, number> = {
   accent: 4,
   danger: 4,
 };
+
+const HOME_COACHMARK_STEPS = [
+  {
+    title: "Plantel",
+    body: "Acá ves a todos los jugadores de la liga. Tocá a uno para ver su perfil y estadísticas.",
+  },
+  {
+    title: "Mi rendimiento",
+    body: "Tu media de puntaje y la racha de últimos partidos. Entrá para ver el detalle completo.",
+  },
+  {
+    title: "Mini ranking",
+    body: "El podio de la liga y tu posición. Se actualiza después de cada partido con votación.",
+  },
+  {
+    title: "Prode y predicciones",
+    body: "Pronosticá resultados y competí con el resto. Sumá puntos por acertar.",
+  },
+  {
+    title: "Duelos",
+    body: "El partido en curso o el último jugado: resultado, MVP y resumen. Tocá para ver detalle.",
+  },
+  {
+    title: "Próximo partido",
+    body: "Cuando un admin programe un partido de fútbol en cancha, aparecerá acá para confirmar asistencia.",
+  },
+];
+
+const SCROLL_OFFSET_PADDING = 100;
 
 export default function LeagueHomeScreen() {
   const params = useLocalSearchParams();
@@ -193,6 +228,27 @@ export default function LeagueHomeScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
   const [members, setMembers] = useState<any[]>([]);
+
+  const { shouldShow: showHomeCoachmark, markSeen: markHomeCoachmark } =
+    useCoachmark(CoachmarkKeys.HOME);
+  const [coachmarkStep, setCoachmarkStep] = useState(-1);
+  const [targetFrame, setTargetFrame] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const canShowCoachmark = useCoachmarkReady(
+    !showOnboarding && showHomeCoachmark && !dismissedThisSession,
+  );
+  const scrollViewRef = useRef<ScrollView>(null);
+  const sectionYOffsets = useRef<Record<number, number>>({});
+  const scrollThenStepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (canShowCoachmark && coachmarkStep < 0) setCoachmarkStep(0);
+  }, [canShowCoachmark, coachmarkStep]);
 
   const fetchDashboardData = async () => {
     try {
@@ -292,6 +348,46 @@ export default function LeagueHomeScreen() {
       if (leagueId) fetchDashboardData();
     }, [leagueId]),
   );
+
+  useFocusEffect(
+    useCallback(() => {
+      setDismissedThisSession(false);
+      return () => {
+        setDismissedThisSession(true);
+        setCoachmarkStep(-1);
+        setTargetFrame(null);
+        if (scrollThenStepTimerRef.current) {
+          clearTimeout(scrollThenStepTimerRef.current);
+          scrollThenStepTimerRef.current = null;
+        }
+      };
+    }, []),
+  );
+
+  const SCROLL_THEN_STEP_MS = 480;
+
+  const handleRequestNextStep = useCallback(
+    (nextStep: number) => {
+      if (scrollThenStepTimerRef.current) {
+        clearTimeout(scrollThenStepTimerRef.current);
+        scrollThenStepTimerRef.current = null;
+      }
+      const y = sectionYOffsets.current[nextStep];
+      if (y !== undefined) {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, y - SCROLL_OFFSET_PADDING),
+          animated: true,
+        });
+      }
+      scrollThenStepTimerRef.current = setTimeout(() => {
+        scrollThenStepTimerRef.current = null;
+        setCoachmarkStep(nextStep);
+        setTargetFrame(null);
+      }, SCROLL_THEN_STEP_MS);
+    },
+    [],
+  );
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
@@ -370,52 +466,10 @@ export default function LeagueHomeScreen() {
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
 
-      <ScreenHeader
-        title=""
-        showBack={false}
-        showBell
-        centerAlign="left"
-        rightAction={
-          <TouchableOpacity
-            onPress={() =>
-              leagueId &&
-              router.push({
-                pathname: "/(main)/league/settings",
-                params: { leagueId },
-              })
-            }
-            style={{ padding: 4 }}
-          >
-            <Ionicons name="settings-outline" size={24} color={Colors.white} />
-          </TouchableOpacity>
-        }
-        centerElement={
-          <TouchableOpacity
-            onPress={() => setModalVisible(true)}
-            style={{ flexDirection: "row", alignItems: "center" }}
-          >
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "900",
-                color: Colors.white,
-                fontStyle: "italic",
-              }}
-              numberOfLines={1}
-            >
-              {leagueName?.toUpperCase() || "LIGA"}
-            </Text>
-            <Ionicons
-              name="chevron-down"
-              size={16}
-              color={Colors.white}
-              style={{ marginLeft: 8 }}
-            />
-          </TouchableOpacity>
-        }
-      />
+      <LeagueHomeHeader title="" leagueId={leagueId} showSettings />
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={[
           styles.scrollContent,
           showOnboarding && styles.scrollContentOnboarding,
@@ -451,7 +505,7 @@ export default function LeagueHomeScreen() {
                 data={members}
                 keyExtractor={(m) => m.user_id}
                 horizontal
-                showsHorizontalScrollIndicator={false}
+                showsHorizontalScrollIndicator={true}
                 contentContainerStyle={styles.squadListContent}
                 renderItem={({ item: member }) => {
                   const isCurrentUser = member.user_id === userId;
@@ -562,17 +616,29 @@ export default function LeagueHomeScreen() {
 
             <MatchActionButtons leagueId={leagueId} />
 
-            <View style={styles.squadSection}>
-              <View style={styles.squadHeader}>
-                <Text style={styles.squadTitle}>
-                  Plantel ({members.length})
-                </Text>
-              </View>
-              <FlatList
+            <View
+              onLayout={(e) => {
+                sectionYOffsets.current[0] = e.nativeEvent.layout.y;
+              }}
+              collapsable={false}
+            >
+              <CoachmarkHighlight
+                highlighted={canShowCoachmark && coachmarkStep === 0}
+                style={styles.squadSection}
+                onMeasure={(frame) =>
+                  coachmarkStep === 0 && setTargetFrame(frame)
+                }
+              >
+                <View style={styles.squadHeader}>
+                  <Text style={styles.squadTitle}>
+                    Plantel ({members.length})
+                  </Text>
+                </View>
+                <FlatList
                 data={members}
                 keyExtractor={(m) => m.user_id}
                 horizontal
-                showsHorizontalScrollIndicator={false}
+                showsHorizontalScrollIndicator={true}
                 contentContainerStyle={styles.squadListContent}
                 renderItem={({ item: member }) => {
                   const isCurrentUser = member.user_id === userId;
@@ -638,8 +704,22 @@ export default function LeagueHomeScreen() {
                   );
                 }}
               />
+              </CoachmarkHighlight>
             </View>
 
+            <View
+              onLayout={(e) => {
+                sectionYOffsets.current[1] = e.nativeEvent.layout.y;
+              }}
+              collapsable={false}
+            >
+              <CoachmarkHighlight
+                highlighted={canShowCoachmark && coachmarkStep === 1}
+                style={{ marginBottom: 20 }}
+                onMeasure={(frame) =>
+                  coachmarkStep === 1 && setTargetFrame(frame)
+                }
+              >
             {(stats?.recentMatches?.length ?? 0) > 0 ? (
               <StatsSummaryCard
                 stats={stats}
@@ -655,14 +735,29 @@ export default function LeagueHomeScreen() {
                   style={styles.miniLeaderboardLockedIcon}
                 />
                 <Text style={styles.miniLeaderboardLockedText}>
-                  Juega tu primer partido para desbloquear tu widget de
-                  rendimiento.
+                  Juega tu primer partido en cancha (fútbol real) para
+                  desbloquear tu widget de rendimiento.
                 </Text>
               </View>
             )}
+              </CoachmarkHighlight>
+            </View>
 
             <AINewsTeaser />
 
+            <View
+              onLayout={(e) => {
+                sectionYOffsets.current[2] = e.nativeEvent.layout.y;
+              }}
+              collapsable={false}
+            >
+              <CoachmarkHighlight
+                highlighted={canShowCoachmark && coachmarkStep === 2}
+                style={{ marginBottom: 20 }}
+                onMeasure={(frame) =>
+                  coachmarkStep === 2 && setTargetFrame(frame)
+                }
+              >
             {lastMatch ? (
               <MiniLeaderboard leagueId={leagueId} />
             ) : (
@@ -674,18 +769,35 @@ export default function LeagueHomeScreen() {
                   style={styles.miniLeaderboardLockedIcon}
                 />
                 <Text style={styles.miniLeaderboardLockedText}>
-                  El miniranking se desbloqueará después del primer partido con
-                  votación completada.
+                  El miniranking se desbloqueará después del primer partido en
+                  cancha con votación completada.
                 </Text>
               </View>
             )}
+              </CoachmarkHighlight>
+            </View>
 
             <NativeAdCardWrapper
               style={{ marginTop: 16, marginBottom: 16 }}
               isPro={planType === "PRO"}
             />
 
-            <PredictionsBanner leagueId={leagueId} />
+            <View
+              onLayout={(e) => {
+                sectionYOffsets.current[3] = e.nativeEvent.layout.y;
+              }}
+              collapsable={false}
+            >
+              <CoachmarkHighlight
+                highlighted={canShowCoachmark && coachmarkStep === 3}
+                style={{ marginBottom: 20 }}
+                onMeasure={(frame) =>
+                  coachmarkStep === 3 && setTargetFrame(frame)
+                }
+              >
+                <PredictionsBanner leagueId={leagueId} />
+              </CoachmarkHighlight>
+            </View>
 
             {loading ? (
               <View style={{ marginTop: 10 }}>
@@ -693,56 +805,110 @@ export default function LeagueHomeScreen() {
               </View>
             ) : (
               <>
-                {duelMatchId && (
-                  <View style={{ marginTop: 10, marginBottom: 5 }}>
-                    {!nextMatch && lastMatch && (
-                      <Text style={styles.sectionTitle}>
-                        RESULTADO DESTACADO
-                      </Text>
+                <View
+                  onLayout={(e) => {
+                    sectionYOffsets.current[4] = e.nativeEvent.layout.y;
+                  }}
+                  collapsable={false}
+                >
+                  <CoachmarkHighlight
+                    highlighted={canShowCoachmark && coachmarkStep === 4}
+                    style={{ marginBottom: 8 }}
+                    onMeasure={(frame) =>
+                      coachmarkStep === 4 && setTargetFrame(frame)
+                    }
+                  >
+                    {duelMatchId ? (
+                      <View style={{ marginTop: 10, marginBottom: 5 }}>
+                        {!nextMatch && lastMatch && (
+                          <Text style={styles.sectionTitle}>
+                            RESULTADO DESTACADO (PARTIDO JUGADO)
+                          </Text>
+                        )}
+                        <DuelCard
+                          matchId={duelMatchId}
+                          isAdmin={canAdminDuel}
+                          onRefresh={fetchDashboardData}
+                          leagueId={leagueId}
+                        />
+                      </View>
+                    ) : (
+                      <View style={{ minHeight: 60 }} />
                     )}
-                    <DuelCard
-                      matchId={duelMatchId}
-                      isAdmin={canAdminDuel}
-                      onRefresh={fetchDashboardData}
-                      leagueId={leagueId}
-                    />
-                  </View>
-                )}
+                  </CoachmarkHighlight>
+                </View>
 
-                {nextMatch ? (
-                  <View>
-                    <Text style={styles.sectionTitle}>PRÓXIMO ENCUENTRO</Text>
-                    <NextMatchCard
-                      match={nextMatch}
-                      isAdmin={isAdmin}
-                      userRole={userRole}
-                      onConfirm={() => handleJoinMatch(nextMatch.id)}
-                      onCancel={() => handleLeaveMatch(nextMatch.id)}
-                      onEdit={
-                        isAdmin ||
-                        userRole === "ADMIN" ||
-                        userRole === "OWNER"
-                          ? () =>
-                              router.push({
-                                pathname: `/(main)/league/match/${nextMatch.id}`,
-                                params: { userRole },
-                              })
-                          : undefined
-                      }
-                    />
-                  </View>
-                ) : (
-                  <EmptyState
-                    title="Esperando convocatoria"
-                    message="Cuando un admin programe un partido, aparecerá aquí."
-                    iconName="calendar"
-                  />
-                )}
+                <View
+                  onLayout={(e) => {
+                    sectionYOffsets.current[5] = e.nativeEvent.layout.y;
+                  }}
+                  collapsable={false}
+                >
+                  <CoachmarkHighlight
+                    highlighted={canShowCoachmark && coachmarkStep === 5}
+                    style={{ marginBottom: 24 }}
+                    onMeasure={(frame) =>
+                      coachmarkStep === 5 && setTargetFrame(frame)
+                    }
+                  >
+                    {nextMatch ? (
+                      <View>
+                        <Text style={styles.sectionTitle}>
+                          PRÓXIMO ENCUENTRO (FÚTBOL REAL)
+                        </Text>
+                        <NextMatchCard
+                          match={nextMatch}
+                          isAdmin={isAdmin}
+                          userRole={userRole}
+                          onConfirm={() => handleJoinMatch(nextMatch.id)}
+                          onCancel={() => handleLeaveMatch(nextMatch.id)}
+                          onEdit={
+                            isAdmin ||
+                            userRole === "ADMIN" ||
+                            userRole === "OWNER"
+                              ? () =>
+                                  router.push({
+                                    pathname: `/(main)/league/match/${nextMatch.id}`,
+                                    params: { userRole },
+                                  })
+                              : undefined
+                          }
+                        />
+                      </View>
+                    ) : (
+                      <EmptyState
+                        title="Esperando convocatoria"
+                        message="Cuando un admin programe un partido de fútbol en cancha (5, 7 u 11), aparecerá aquí."
+                        iconName="calendar"
+                      />
+                    )}
+                  </CoachmarkHighlight>
+                </View>
               </>
             )}
           </>
         )}
       </ScrollView>
+
+      {canShowCoachmark && (
+          <CoachmarkModal
+            visible={true}
+            steps={HOME_COACHMARK_STEPS}
+            stepIndexProp={coachmarkStep}
+            onRequestNextStep={handleRequestNextStep}
+            onFinish={() => {
+              setDismissedThisSession(true);
+              setCoachmarkStep(-1);
+              setTargetFrame(null);
+              markHomeCoachmark();
+            }}
+            onStepChange={(step) => {
+              setCoachmarkStep(step);
+              if (step === -1) setTargetFrame(null);
+            }}
+            targetFrame={targetFrame}
+          />
+        )}
 
       {/* MODAL SELECTOR */}
       <Modal
@@ -838,6 +1004,7 @@ const styles = StyleSheet.create({
   },
   squadListContent: {
     paddingHorizontal: 16,
+    paddingRight: 50,
     gap: SQUAD_GAP,
   },
   squadItem: {
@@ -959,6 +1126,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   formText: { fontSize: 10, fontWeight: "900" },
+  formHint: {
+    color: Colors.textMuted,
+    fontSize: 9,
+    fontWeight: "600",
+    marginBottom: 2,
+  },
   noStatsText: { color: Colors.textMuted, fontSize: 12, fontStyle: "italic" },
   tapHint: { color: Colors.accentGold, fontSize: 10, fontWeight: "600" },
 

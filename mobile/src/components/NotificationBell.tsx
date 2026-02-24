@@ -58,9 +58,9 @@ export function NotificationBell() {
 
 const styles = StyleSheet.create({
   iconButton: {
-    marginLeft: 20,
+    marginLeft: 0,
     position: "relative",
-    padding: 4,
+    padding: 8,
   },
   badge: {
     position: "absolute",

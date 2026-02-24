@@ -131,11 +131,15 @@ export const joinLeague = async (req: Request, res: Response) => {
 
 export const updateLeague = async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { name, description } = req.body;
+  const { name, description, custom_medal_names } = req.body;
   try {
+    const data: { name?: string; description?: string; custom_medal_names?: Record<string, string> } = {};
+    if (name !== undefined) data.name = name;
+    if (description !== undefined) data.description = description;
+    if (custom_medal_names !== undefined) data.custom_medal_names = custom_medal_names;
     const updated = await prisma.leagues.update({
       where: { id },
-      data: { name, description },
+      data,
     });
     res.json(updated);
   } catch (e) {

@@ -198,7 +198,7 @@ export function AchievementsWidget({
 
       {/* Header + % arriba a la derecha */}
       <View style={styles.header}>
-        <Text style={styles.title}>Nivel de Leyenda</Text>
+        <Text style={styles.title}>Mis Logros</Text>
         <CircularProgress percent={percentCompleted} accent={accentColor} />
       </View>
 

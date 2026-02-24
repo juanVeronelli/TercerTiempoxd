@@ -151,7 +151,8 @@ exports.Prisma.LeaguesScalarFieldEnum = {
   description: 'description',
   invite_code: 'invite_code',
   admin_id: 'admin_id',
-  created_at: 'created_at'
+  created_at: 'created_at',
+  custom_medal_names: 'custom_medal_names'
 };
 
 exports.Prisma.League_membersScalarFieldEnum = {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -21,6 +21,10 @@ import { NotificationBell } from "../../../../src/components/NotificationBell";
 import { ScreenHeader } from "../../../../src/components/ui/ScreenHeader";
 import { EmptyState } from "../../../../src/components/ui/EmptyState";
 import { Skeleton } from "../../../../src/components/ui/Skeleton";
+import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
+import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
+import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
+import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import * as Clipboard from "expo-clipboard";
@@ -54,6 +58,50 @@ export default function MatchScreen() {
   const [nextMatch, setNextMatch] = useState<any>(null);
   const [votingMatches, setVotingMatches] = useState<any[]>([]);
   const [recentResultsMatches, setRecentResultsMatches] = useState<any[]>([]);
+
+  const { shouldShow: showMatchCoachmark, markSeen: markMatchCoachmark } =
+    useCoachmark(CoachmarkKeys.MATCH);
+  const [coachmarkStep, setCoachmarkStep] = useState(-1);
+  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const canShowCoachmark = useCoachmarkReady(
+    !loading && showMatchCoachmark && !dismissedThisSession,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      setDismissedThisSession(false);
+      return () => {
+        setDismissedThisSession(true);
+        setCoachmarkStep(-1);
+        setTargetFrame(null);
+      };
+    }, []),
+  );
+
+  const MATCH_ADMIN_STEPS = useMemo(
+    () => [
+      {
+        title: "Programar partido",
+        body: "Acá podés crear y programar un partido: definí fecha, hora y convocá al equipo.",
+      },
+      {
+        title: "Administrar partidos",
+        body: "Acá se muestra el partido más próximo que tengas y los que hayas creado. Tocá uno para ver detalle o convocar.",
+      },
+    ],
+    [],
+  );
+  const MATCH_MEMBER_STEPS = useMemo(
+    () => [
+      {
+        title: "Tu próximo partido",
+        body: "Acá se muestra el partido más próximo que tengas. Cuando un admin programe uno, aparecerá aquí.",
+      },
+    ],
+    [],
+  );
+  const matchCoachmarkSteps = isAdmin ? MATCH_ADMIN_STEPS : MATCH_MEMBER_STEPS;
 
   const fetchData = async () => {
     try {
@@ -169,8 +217,26 @@ export default function MatchScreen() {
 
       <ScreenHeader
         title={leagueData ? leagueData.name.toUpperCase() : "PARTIDOS"}
-        showBack
+        showBack={false}
       />
+
+      {canShowCoachmark && (
+        <CoachmarkModal
+          visible={true}
+          steps={matchCoachmarkSteps}
+          onFinish={() => {
+            setDismissedThisSession(true);
+            setCoachmarkStep(-1);
+            setTargetFrame(null);
+            markMatchCoachmark();
+          }}
+          onStepChange={(step) => {
+            setCoachmarkStep(step);
+            if (step === -1) setTargetFrame(null);
+          }}
+          targetFrame={targetFrame}
+        />
+      )}
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -194,40 +260,45 @@ export default function MatchScreen() {
           >
             {/* HERO SECTION ORIGINAL */}
             {isAdmin ? (
-              <TouchableOpacity
-                style={styles.heroCardAdmin}
-                onPress={() => router.push("/(main)/league/match/create")}
-                activeOpacity={0.9}
-                testID="e2e-match-index-programar"
+              <CoachmarkHighlight
+                highlighted={canShowCoachmark && coachmarkStep === 0}
+                style={{ marginBottom: 15 }}
+                onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
               >
-                <View style={styles.heroContent}>
-                  <View style={styles.adminIconBox}>
-                    <Ionicons name="add" size={32} color={THEME.accentBlue} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[styles.heroTitle, { color: THEME.accentBlue }]}
-                    >
-                      PROGRAMAR PARTIDO
-                    </Text>
-                    <Text style={styles.heroSubtitle}>
-                      Define fecha, hora y convoca al equipo.
-                    </Text>
+                <TouchableOpacity
+                  style={styles.heroCardAdmin}
+                  onPress={() => router.push("/(main)/league/match/create")}
+                  activeOpacity={0.9}
+                  testID="e2e-match-index-programar"
+                >
+                  <View style={styles.heroContent}>
+                    <View style={styles.adminIconBox}>
+                      <Ionicons name="add" size={32} color={THEME.accentBlue} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text
+                        style={[styles.heroTitle, { color: THEME.accentBlue }]}
+                      >
+                        PROGRAMAR PARTIDO
+                      </Text>
+                      <Text style={styles.heroSubtitle}>
+                        Define fecha, hora y convoca al equipo.
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={24}
+                      color={THEME.textSecondary}
+                    />
                   </View>
                   <Ionicons
-                    name="chevron-forward"
-                    size={24}
-                    color={THEME.textSecondary}
+                    name="calendar"
+                    size={120}
+                    color={THEME.accentBlue}
+                    style={styles.adminWatermark}
                   />
-                </View>
-                {/* MARCA DE AGUA RECUPERADA */}
-                <Ionicons
-                  name="calendar"
-                  size={120}
-                  color={THEME.accentBlue}
-                  style={styles.adminWatermark}
-                />
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </CoachmarkHighlight>
             ) : (
               <View style={styles.heroCardMember}>
                 <View style={styles.leagueInfoContent}>
@@ -373,59 +444,71 @@ export default function MatchScreen() {
               </View>
             ))}
 
-            <View style={styles.sectionHeaderBox}>
-              <Text style={styles.sectionHeader}>
-                {isAdmin ? "ADMINISTRAR PARTIDOS" : "TU PRÓXIMO PARTIDO"}
-              </Text>
-            </View>
+            <CoachmarkHighlight
+              highlighted={
+                canShowCoachmark &&
+                (isAdmin ? coachmarkStep === 1 : coachmarkStep === 0)
+              }
+              style={{ marginBottom: 8 }}
+              onMeasure={(frame) =>
+                (isAdmin ? coachmarkStep === 1 : coachmarkStep === 0) &&
+                setTargetFrame(frame)
+              }
+            >
+              <View style={styles.sectionHeaderBox}>
+                <Text style={styles.sectionHeader}>
+                  {isAdmin ? "ADMINISTRAR PARTIDOS" : "TU PRÓXIMO PARTIDO"}
+                </Text>
+              </View>
 
-            {isAdmin ? (
-              adminMatches.length > 0 ? (
-                adminMatches.map((match) => (
-                  <View key={match.id} style={{ marginBottom: 15 }}>
-                    <NextMatchCard
-                      match={match}
-                      isAdmin={true}
-                      userRole={userRole}
-                      onConfirm={() => handleConfirm(match.id)}
-                      onCancel={() => handleCancel(match.id)}
-                      onEdit={() =>
-                        router.push({
-                          pathname: `/(main)/league/match/${match.id}`,
-                          params: { userRole },
-                        })
-                      }
-                    />
-                  </View>
-                ))
+              {isAdmin ? (
+                adminMatches.length > 0 ? (
+                  adminMatches.map((match) => (
+                    <View key={match.id} style={{ marginBottom: 15 }}>
+                      <NextMatchCard
+                        match={match}
+                        isAdmin={true}
+                        userRole={userRole}
+                        onConfirm={() => handleConfirm(match.id)}
+                        onCancel={() => handleCancel(match.id)}
+                        onEdit={() =>
+                          router.push({
+                            pathname: `/(main)/league/match/${match.id}`,
+                            params: { userRole },
+                          })
+                        }
+                      />
+                    </View>
+                  ))
+                ) : (
+                  <EmptyState
+                    title="No hay partidos programados"
+                    message="Crea el primer partido de la liga y convoca a tu equipo."
+                    iconName="calendar"
+                    actionLabel="Crear Partido"
+                    onAction={() =>
+                      router.push({
+                        pathname: "/(main)/league/match/create",
+                        params: { leagueId },
+                      })
+                    }
+                  />
+                )
+              ) : nextMatch ? (
+                <NextMatchCard
+                  match={nextMatch}
+                  isAdmin={false}
+                  onConfirm={() => handleConfirm(nextMatch.id)}
+                  onCancel={() => handleCancel(nextMatch.id)}
+                />
               ) : (
                 <EmptyState
-                  title="No hay partidos programados"
-                  message="Crea el primer partido de la liga y convoca a tu equipo."
+                  title="Esperando convocatoria"
+                  message="Aún no hay partidos para este periodo. Cuando un admin programe uno, aparecerá aquí."
                   iconName="calendar"
-                  actionLabel="Crear Partido"
-                  onAction={() =>
-                    router.push({
-                      pathname: "/(main)/league/match/create",
-                      params: { leagueId },
-                    })
-                  }
                 />
-              )
-            ) : nextMatch ? (
-              <NextMatchCard
-                match={nextMatch}
-                isAdmin={false}
-                onConfirm={() => handleConfirm(nextMatch.id)}
-                onCancel={() => handleCancel(nextMatch.id)}
-              />
-            ) : (
-              <EmptyState
-                title="Esperando convocatoria"
-                message="Aún no hay partidos para este periodo. Cuando un admin programe uno, aparecerá aquí."
-                iconName="calendar"
-              />
-            )}
+              )}
+            </CoachmarkHighlight>
           </Animated.View>
         )}
         <View style={{ height: 40 }} />

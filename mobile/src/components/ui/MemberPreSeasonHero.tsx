@@ -85,7 +85,8 @@ export function MemberPreSeasonHero({
         <View style={styles.textContainer}>
           <Text style={styles.title}>PRETEMPORADA</Text>
           <Text style={styles.description}>
-            Esperando a que el admin programe el primer partido!
+            Esperando a que el admin programe el primer partido de fútbol real
+            en cancha.
           </Text>
         </View>
         <TouchableOpacity

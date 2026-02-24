@@ -58,7 +58,8 @@ export function LeagueInviteHero({ leagueId, onCopy }: LeagueInviteHeroProps) {
       <View style={styles.content}>
         <Text style={styles.title}>Una liga no tiene sentido sin amigos</Text>
         <Text style={styles.subtitle}>
-          Invitalos con este código para que se sumen a la liga.
+          Invitalos con este código para que se sumen a la liga y a los
+          partidos de fútbol en cancha.
         </Text>
 
         <TouchableOpacity

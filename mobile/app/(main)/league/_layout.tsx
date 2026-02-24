@@ -1,31 +1,33 @@
 import { useEffect } from "react";
-import { Tabs } from "expo-router";
+import { Tabs, usePathname, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { Colors } from "../../../src/constants/Colors";
-import { LeagueProvider } from "../../../src/context/LeagueContext";
+import { LeagueProvider, useLeagueContext } from "../../../src/context/LeagueContext";
 
-export default function LeagueTabsLayout() {
-  useEffect(() => {
-    // En Expo Go (SDK 53+) las push no están soportadas en Android; evitar cargar expo-notifications
-    if (Constants.appOwnership === "expo") return;
-    import("../../../src/services/pushTokenService").then((m) =>
-      m.registerPushToken(),
-    );
-  }, []);
+function LeagueTabsContent() {
+  const pathname = usePathname();
+  const params = useLocalSearchParams<{ leagueId?: string }>();
+  const leagueContext = useLeagueContext();
+  const leagueId = leagueContext?.leagueId ?? params?.leagueId ?? null;
+  const isInsideLeague = Boolean(leagueId) || pathname.includes("/league/ranking") || pathname.includes("/league/match") || pathname.includes("/league/stats");
+  /** Ocultar tab bar cuando se entra al perfil desde el selector (sin liga en contexto) */
+  const isProfileFromSelector = pathname.includes("/league/profile") && !leagueId;
+
+  const tabBarStyle = {
+    backgroundColor: "#1a1b26",
+    borderTopWidth: 0,
+    height: 80,
+    paddingBottom: 10,
+    paddingTop: 10,
+    ...(isProfileFromSelector ? { display: "none" as const } : {}),
+  };
 
   return (
-    <LeagueProvider>
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: "#1a1b26",
-          borderTopWidth: 0,
-          height: 80,
-          paddingBottom: 10,
-          paddingTop: 10,
-        },
+        tabBarStyle,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: "#6B7280",
         tabBarShowLabel: false,
@@ -45,11 +47,12 @@ export default function LeagueTabsLayout() {
         }}
       />
 
-      {/* 2. RANKING */}
+      {/* 2. RANKING — solo visible dentro de una liga */}
       <Tabs.Screen
         name="ranking"
         options={{
           title: "Ranking",
+          href: isInsideLeague ? "/(main)/league/ranking" : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "trophy" : "trophy-outline"}
@@ -60,12 +63,12 @@ export default function LeagueTabsLayout() {
         }}
       />
 
-      {/* 3. PARTIDOS (testID y label para E2E Maestro) */}
+      {/* 3. PARTIDOS — solo visible dentro de una liga */}
       <Tabs.Screen
         name="match"
         options={{
           title: "Partidos",
-          href: "/(main)/league/match",
+          href: isInsideLeague ? "/(main)/league/match" : null,
           tabBarTestID: "tab-partidos",
           tabBarAccessibilityLabel: "Partidos",
           tabBarIcon: ({ color, focused }) => (
@@ -78,11 +81,12 @@ export default function LeagueTabsLayout() {
         }}
       />
 
-      {/* 4. MI RENDIMIENTO */}
+      {/* 4. MI RENDIMIENTO — solo visible dentro de una liga */}
       <Tabs.Screen
         name="stats"
         options={{
           title: "Mi Rendimiento",
+          href: isInsideLeague ? "/(main)/league/stats" : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "analytics" : "analytics-outline"}
@@ -112,6 +116,20 @@ export default function LeagueTabsLayout() {
       <Tabs.Screen name="predictions" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
+  );
+}
+
+export default function LeagueTabsLayout() {
+  useEffect(() => {
+    if (Constants.appOwnership === "expo") return;
+    import("../../../src/services/pushTokenService").then((m) =>
+      m.registerPushToken(),
+    );
+  }, []);
+
+  return (
+    <LeagueProvider>
+      <LeagueTabsContent />
     </LeagueProvider>
   );
 }

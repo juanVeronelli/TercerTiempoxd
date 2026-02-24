@@ -4717,6 +4717,7 @@ export namespace Prisma {
     invite_code: number
     admin_id: number
     created_at: number
+    custom_medal_names: number
     _all: number
   }
 
@@ -4746,6 +4747,7 @@ export namespace Prisma {
     invite_code?: true
     admin_id?: true
     created_at?: true
+    custom_medal_names?: true
     _all?: true
   }
 
@@ -4828,6 +4830,7 @@ export namespace Prisma {
     invite_code: string
     admin_id: string | null
     created_at: Date | null
+    custom_medal_names: JsonValue | null
     _count: LeaguesCountAggregateOutputType | null
     _min: LeaguesMinAggregateOutputType | null
     _max: LeaguesMaxAggregateOutputType | null
@@ -4854,6 +4857,7 @@ export namespace Prisma {
     invite_code?: boolean
     admin_id?: boolean
     created_at?: boolean
+    custom_medal_names?: boolean
     admin?: boolean | leagues$adminArgs<ExtArgs>
     league_members?: boolean | leagues$league_membersArgs<ExtArgs>
     matches?: boolean | leagues$matchesArgs<ExtArgs>
@@ -4871,6 +4875,7 @@ export namespace Prisma {
     invite_code?: boolean
     admin_id?: boolean
     created_at?: boolean
+    custom_medal_names?: boolean
     admin?: boolean | leagues$adminArgs<ExtArgs>
   }, ExtArgs["result"]["leagues"]>
 
@@ -4881,6 +4886,7 @@ export namespace Prisma {
     invite_code?: boolean
     admin_id?: boolean
     created_at?: boolean
+    custom_medal_names?: boolean
     admin?: boolean | leagues$adminArgs<ExtArgs>
   }, ExtArgs["result"]["leagues"]>
 
@@ -4891,9 +4897,10 @@ export namespace Prisma {
     invite_code?: boolean
     admin_id?: boolean
     created_at?: boolean
+    custom_medal_names?: boolean
   }
 
-  export type leaguesOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "description" | "invite_code" | "admin_id" | "created_at", ExtArgs["result"]["leagues"]>
+  export type leaguesOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "description" | "invite_code" | "admin_id" | "created_at" | "custom_medal_names", ExtArgs["result"]["leagues"]>
   export type leaguesInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     admin?: boolean | leagues$adminArgs<ExtArgs>
     league_members?: boolean | leagues$league_membersArgs<ExtArgs>
@@ -4929,6 +4936,10 @@ export namespace Prisma {
       invite_code: string
       admin_id: string | null
       created_at: Date | null
+      /**
+       * * Mapeo opcional: id de medalla -> nombre personalizado (ej. tronco -> "Carnicero")
+       */
+      custom_medal_names: Prisma.JsonValue | null
     }, ExtArgs["result"]["leagues"]>
     composites: {}
   }
@@ -5365,6 +5376,7 @@ export namespace Prisma {
     readonly invite_code: FieldRef<"leagues", 'String'>
     readonly admin_id: FieldRef<"leagues", 'String'>
     readonly created_at: FieldRef<"leagues", 'DateTime'>
+    readonly custom_medal_names: FieldRef<"leagues", 'Json'>
   }
     
 
@@ -24800,7 +24812,8 @@ export namespace Prisma {
     description: 'description',
     invite_code: 'invite_code',
     admin_id: 'admin_id',
-    created_at: 'created_at'
+    created_at: 'created_at',
+    custom_medal_names: 'custom_medal_names'
   };
 
   export type LeaguesScalarFieldEnum = (typeof LeaguesScalarFieldEnum)[keyof typeof LeaguesScalarFieldEnum]
@@ -25401,6 +25414,7 @@ export namespace Prisma {
     invite_code?: StringFilter<"leagues"> | string
     admin_id?: UuidNullableFilter<"leagues"> | string | null
     created_at?: DateTimeNullableFilter<"leagues"> | Date | string | null
+    custom_medal_names?: JsonNullableFilter<"leagues">
     admin?: XOR<UsersNullableScalarRelationFilter, usersWhereInput> | null
     league_members?: League_membersListRelationFilter
     matches?: MatchesListRelationFilter
@@ -25417,6 +25431,7 @@ export namespace Prisma {
     invite_code?: SortOrder
     admin_id?: SortOrderInput | SortOrder
     created_at?: SortOrderInput | SortOrder
+    custom_medal_names?: SortOrderInput | SortOrder
     admin?: usersOrderByWithRelationInput
     league_members?: league_membersOrderByRelationAggregateInput
     matches?: matchesOrderByRelationAggregateInput
@@ -25436,6 +25451,7 @@ export namespace Prisma {
     description?: StringNullableFilter<"leagues"> | string | null
     admin_id?: UuidNullableFilter<"leagues"> | string | null
     created_at?: DateTimeNullableFilter<"leagues"> | Date | string | null
+    custom_medal_names?: JsonNullableFilter<"leagues">
     admin?: XOR<UsersNullableScalarRelationFilter, usersWhereInput> | null
     league_members?: League_membersListRelationFilter
     matches?: MatchesListRelationFilter
@@ -25452,6 +25468,7 @@ export namespace Prisma {
     invite_code?: SortOrder
     admin_id?: SortOrderInput | SortOrder
     created_at?: SortOrderInput | SortOrder
+    custom_medal_names?: SortOrderInput | SortOrder
     _count?: leaguesCountOrderByAggregateInput
     _max?: leaguesMaxOrderByAggregateInput
     _min?: leaguesMinOrderByAggregateInput
@@ -25467,6 +25484,7 @@ export namespace Prisma {
     invite_code?: StringWithAggregatesFilter<"leagues"> | string
     admin_id?: UuidNullableWithAggregatesFilter<"leagues"> | string | null
     created_at?: DateTimeNullableWithAggregatesFilter<"leagues"> | Date | string | null
+    custom_medal_names?: JsonNullableWithAggregatesFilter<"leagues">
   }
 
   export type league_membersWhereInput = {
@@ -27002,6 +27020,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersCreateNestedOneWithoutLeagues_ownedInput
     league_members?: league_membersCreateNestedManyWithoutLeaguesInput
     matches?: matchesCreateNestedManyWithoutLeaguesInput
@@ -27018,6 +27037,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedCreateNestedManyWithoutLeaguesInput
     matches?: matchesUncheckedCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesUncheckedCreateNestedManyWithoutLeaguesInput
@@ -27032,6 +27052,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersUpdateOneWithoutLeagues_ownedNestedInput
     league_members?: league_membersUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUpdateManyWithoutLeaguesNestedInput
@@ -27048,6 +27069,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUncheckedUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -27063,6 +27085,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
   }
 
   export type leaguesUpdateManyMutationInput = {
@@ -27071,6 +27094,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
   }
 
   export type leaguesUncheckedUpdateManyInput = {
@@ -27080,6 +27104,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
   }
 
   export type league_membersCreateInput = {
@@ -28825,6 +28850,7 @@ export namespace Prisma {
     invite_code?: SortOrder
     admin_id?: SortOrder
     created_at?: SortOrder
+    custom_medal_names?: SortOrder
   }
 
   export type leaguesMaxOrderByAggregateInput = {
@@ -32322,6 +32348,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersCreateNestedManyWithoutLeaguesInput
     matches?: matchesCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesCreateNestedManyWithoutLeaguesInput
@@ -32336,6 +32363,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedCreateNestedManyWithoutLeaguesInput
     matches?: matchesUncheckedCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesUncheckedCreateNestedManyWithoutLeaguesInput
@@ -32938,6 +32966,7 @@ export namespace Prisma {
     invite_code?: StringFilter<"leagues"> | string
     admin_id?: UuidNullableFilter<"leagues"> | string | null
     created_at?: DateTimeNullableFilter<"leagues"> | Date | string | null
+    custom_medal_names?: JsonNullableFilter<"leagues">
   }
 
   export type matchesUpsertWithWhereUniqueWithoutUsersInput = {
@@ -33908,6 +33937,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersCreateNestedOneWithoutLeagues_ownedInput
     matches?: matchesCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesCreateNestedManyWithoutLeaguesInput
@@ -33923,6 +33953,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     matches?: matchesUncheckedCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesUncheckedCreateNestedManyWithoutLeaguesInput
     honors?: honorsUncheckedCreateNestedManyWithoutLeaguesInput
@@ -34041,6 +34072,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersUpdateOneWithoutLeagues_ownedNestedInput
     matches?: matchesUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUpdateManyWithoutLeaguesNestedInput
@@ -34056,6 +34088,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     matches?: matchesUncheckedUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUncheckedUpdateManyWithoutLeaguesNestedInput
     honors?: honorsUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -34164,6 +34197,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersCreateNestedOneWithoutLeagues_ownedInput
     league_members?: league_membersCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesCreateNestedManyWithoutLeaguesInput
@@ -34179,6 +34213,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesUncheckedCreateNestedManyWithoutLeaguesInput
     honors?: honorsUncheckedCreateNestedManyWithoutLeaguesInput
@@ -34574,6 +34609,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersUpdateOneWithoutLeagues_ownedNestedInput
     league_members?: league_membersUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUpdateManyWithoutLeaguesNestedInput
@@ -34589,6 +34625,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUncheckedUpdateManyWithoutLeaguesNestedInput
     honors?: honorsUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -35213,6 +35250,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersCreateNestedOneWithoutLeagues_ownedInput
     league_members?: league_membersCreateNestedManyWithoutLeaguesInput
     matches?: matchesCreateNestedManyWithoutLeaguesInput
@@ -35228,6 +35266,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedCreateNestedManyWithoutLeaguesInput
     matches?: matchesUncheckedCreateNestedManyWithoutLeaguesInput
     honors?: honorsUncheckedCreateNestedManyWithoutLeaguesInput
@@ -35486,6 +35525,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersUpdateOneWithoutLeagues_ownedNestedInput
     league_members?: league_membersUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUpdateManyWithoutLeaguesNestedInput
@@ -35501,6 +35541,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUncheckedUpdateManyWithoutLeaguesNestedInput
     honors?: honorsUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -36632,6 +36673,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersCreateNestedOneWithoutLeagues_ownedInput
     league_members?: league_membersCreateNestedManyWithoutLeaguesInput
     matches?: matchesCreateNestedManyWithoutLeaguesInput
@@ -36647,6 +36689,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedCreateNestedManyWithoutLeaguesInput
     matches?: matchesUncheckedCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesUncheckedCreateNestedManyWithoutLeaguesInput
@@ -36753,6 +36796,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersUpdateOneWithoutLeagues_ownedNestedInput
     league_members?: league_membersUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUpdateManyWithoutLeaguesNestedInput
@@ -36768,6 +36812,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUncheckedUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -37413,6 +37458,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersCreateNestedOneWithoutLeagues_ownedInput
     league_members?: league_membersCreateNestedManyWithoutLeaguesInput
     matches?: matchesCreateNestedManyWithoutLeaguesInput
@@ -37428,6 +37474,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedCreateNestedManyWithoutLeaguesInput
     matches?: matchesUncheckedCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesUncheckedCreateNestedManyWithoutLeaguesInput
@@ -37591,6 +37638,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersUpdateOneWithoutLeagues_ownedNestedInput
     league_members?: league_membersUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUpdateManyWithoutLeaguesNestedInput
@@ -37606,6 +37654,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUncheckedUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -37949,6 +37998,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersCreateNestedOneWithoutLeagues_ownedInput
     league_members?: league_membersCreateNestedManyWithoutLeaguesInput
     matches?: matchesCreateNestedManyWithoutLeaguesInput
@@ -37964,6 +38014,7 @@ export namespace Prisma {
     invite_code: string
     admin_id?: string | null
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedCreateNestedManyWithoutLeaguesInput
     matches?: matchesUncheckedCreateNestedManyWithoutLeaguesInput
     match_votes?: match_votesUncheckedCreateNestedManyWithoutLeaguesInput
@@ -38171,6 +38222,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     admin?: usersUpdateOneWithoutLeagues_ownedNestedInput
     league_members?: league_membersUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUpdateManyWithoutLeaguesNestedInput
@@ -38186,6 +38238,7 @@ export namespace Prisma {
     invite_code?: StringFieldUpdateOperationsInput | string
     admin_id?: NullableStringFieldUpdateOperationsInput | string | null
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUncheckedUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -39005,6 +39058,7 @@ export namespace Prisma {
     description?: string | null
     invite_code: string
     created_at?: Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
   }
 
   export type matchesCreateManyUsersInput = {
@@ -39195,6 +39249,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUpdateManyWithoutLeaguesNestedInput
@@ -39209,6 +39264,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
     league_members?: league_membersUncheckedUpdateManyWithoutLeaguesNestedInput
     matches?: matchesUncheckedUpdateManyWithoutLeaguesNestedInput
     match_votes?: match_votesUncheckedUpdateManyWithoutLeaguesNestedInput
@@ -39223,6 +39279,7 @@ export namespace Prisma {
     description?: NullableStringFieldUpdateOperationsInput | string | null
     invite_code?: StringFieldUpdateOperationsInput | string
     created_at?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    custom_medal_names?: NullableJsonNullValueInput | InputJsonValue
   }
 
   export type matchesUpdateWithoutUsersInput = {

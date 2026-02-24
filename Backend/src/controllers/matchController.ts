@@ -339,7 +339,6 @@ export const getMatchDetails = async (req: Request, res: Response) => {
     const comments = match.match_votes
       .filter((v) => v.comment && v.comment.trim() !== "")
       .map((v) => {
-        // Buscamos el nombre del target_id entre los jugadores del match
         const target = match.match_players.find(
           (mp) => mp.user_id === v.target_id,
         );
@@ -348,6 +347,27 @@ export const getMatchDetails = async (req: Request, res: Response) => {
           target_name: target?.users.full_name || "Jugador",
         };
       });
+
+    // 3. Quién votó qué (para sección PRO: revelar votos)
+    const votes_breakdown = match.match_votes.map((v) => {
+      const voter = match.match_players.find((mp) => mp.user_id === v.voter_id);
+      const target = match.match_players.find((mp) => mp.user_id === v.target_id);
+      return {
+        voter_name: voter?.users?.full_name || voter?.users?.username || "Anónimo",
+        target_name: target?.users?.full_name || target?.users?.username || "Jugador",
+        overall: Number(v.overall),
+      };
+    });
+
+    // Plan del usuario actual (para paywall "Revelar votos")
+    let userPlanType = "FREE";
+    if (userId) {
+      const u = await prisma.users.findUnique({
+        where: { id: userId },
+        select: { plan_type: true },
+      });
+      userPlanType = (u?.plan_type ?? "FREE").toUpperCase();
+    }
 
     // Rol del usuario actual en la liga (para UI: ADMIN y OWNER ven Gestionar y botones de estado)
     let userRole = "MEMBER";
@@ -376,8 +396,10 @@ export const getMatchDetails = async (req: Request, res: Response) => {
       ...match,
       match_players: playersWithVoteStatus,
       players: playersWithVoteStatus,
-      comments: comments,
+      comments,
       honors: match.honors,
+      votes_breakdown,
+      userPlanType,
       userRole,
     });
   } catch (error) {

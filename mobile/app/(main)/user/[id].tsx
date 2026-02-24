@@ -27,6 +27,26 @@ import type { AvatarFramePreset } from "../../../src/components/profile/profileC
 
 const { width } = Dimensions.get("window");
 
+function getDateLabel(dateStr: string): string {
+  const d = new Date(dateStr);
+  const today = new Date();
+  if (
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear()
+  )
+    return "Hoy";
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear()
+  )
+    return "Ayer";
+  return format(d, "dd/MM", { locale: es });
+}
+
 // Configuración de Items de Vitrina
 const SHOWCASE_CONFIG: any = {
   mvp: { label: "MVP Ganados", icon: "trophy" },
@@ -325,39 +345,46 @@ export default function PublicProfileScreen() {
         {recentMatches && recentMatches.length > 0 ? (
           recentMatches.map((match: any) => {
             const rating = parseFloat(match.rating) || 0;
+            const dateLabel = getDateLabel(match.date);
             return (
               <View key={match.matchId} style={styles.matchRow}>
-                <View style={styles.matchLeft}>
-                  <View style={styles.leagueIcon}>
-                    <Ionicons
-                      name="trophy-outline"
-                      size={16}
-                      color={Colors.textSecondary}
-                    />
-                  </View>
-                  <View>
-                    <Text style={styles.matchLocation}>{match.location}</Text>
-                    <View
-                      style={{ flexDirection: "row", alignItems: "center" }}
-                    >
-                      {/* Nombre de la liga con el color de acento */}
+                <View
+                  style={[styles.matchAccent, { backgroundColor: activeAccent }]}
+                />
+                <View style={styles.matchBody}>
+                  <View style={styles.matchMain}>
+                    <View style={styles.matchMeta}>
+                      <Text style={styles.matchDateText}>
+                        {format(new Date(match.date), "dd MMM", {
+                          locale: es,
+                        })}
+                      </Text>
+                      <View style={styles.matchPill}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={11}
+                          color={Colors.textSecondary}
+                        />
+                        <Text style={styles.matchPillText}>
+                          Jugado · {dateLabel}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.matchLocation} numberOfLines={1}>
+                      {match.location}
+                    </Text>
+                    {match.leagueName ? (
                       <Text
                         style={[styles.matchLeague, { color: activeAccent }]}
+                        numberOfLines={1}
                       >
                         {match.leagueName}
                       </Text>
-                      <Text style={styles.matchDate}>
-                        {" "}
-                        •{" "}
-                        {format(new Date(match.date), "dd MMM", { locale: es })}
-                      </Text>
-                    </View>
+                    ) : null}
                   </View>
-                </View>
-                <View style={styles.matchRight}>
                   <View
                     style={[
-                      styles.ratingBox,
+                      styles.ratingPill,
                       { backgroundColor: getRatingColor(rating) },
                     ]}
                   >
@@ -569,37 +596,72 @@ const styles = StyleSheet.create({
 
   // Matches
   matchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     backgroundColor: Colors.surface,
-    padding: 16,
     borderRadius: 16,
-    marginBottom: 10,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+    position: "relative",
+    overflow: "hidden",
   },
-  matchLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  leagueIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+  matchAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  matchBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingLeft: 20,
+  },
+  matchMain: { flex: 1, minWidth: 0 },
+  matchMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  matchDateText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  matchPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  matchLocation: { color: "white", fontSize: 14, fontWeight: "bold" },
-  matchLeague: { fontSize: 11, fontWeight: "700" },
-  matchDate: { color: Colors.textSecondary, fontSize: 11 },
-  matchRight: { alignItems: "flex-end" },
-  ratingBox: {
-    width: 32,
-    height: 32,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 8,
+  },
+  matchPillText: {
+    color: Colors.textSecondary,
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  matchLocation: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  matchLeague: { fontSize: 12, fontWeight: "600" },
+  ratingPill: {
+    minWidth: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 12,
   },
-  ratingValue: { color: "black", fontSize: 14, fontWeight: "900" },
+  ratingValue: { color: "#111827", fontSize: 16, fontWeight: "900" },
 
   emptyState: { alignItems: "center", padding: 30 },
   emptyStateText: {

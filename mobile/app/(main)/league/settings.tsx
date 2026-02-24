@@ -23,6 +23,7 @@ import * as Clipboard from "expo-clipboard";
 import { useCurrentUser } from "../../../src/hooks/useCurrentUser";
 import { UserAvatar } from "../../../src/components/ui/UserAvatar";
 import { Skeleton } from "../../../src/components/ui/Skeleton";
+import { MEDALS_INFO } from "../../../src/constants/MedalsInfo";
 
 // Tipado de Miembro
 type Member = {
@@ -53,6 +54,8 @@ export default function LeagueSettingsScreen() {
   const [description, setDescription] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
+  /** Mapeo id medalla -> nombre personalizado (ej. tronco -> "Carnicero") */
+  const [customMedalNames, setCustomMedalNames] = useState<Record<string, string>>({});
 
   // Rol del usuario logueado
   const [myRole, setMyRole] = useState("MEMBER");
@@ -74,6 +77,7 @@ export default function LeagueSettingsScreen() {
       setName(leagueRes.data.name);
       setDescription(leagueRes.data.description || "");
       setInviteCode(leagueRes.data.invite_code);
+      setCustomMedalNames(leagueRes.data.custom_medal_names ?? {});
 
       // Cargamos miembros y nuestro rol (inyectado por el backend)
       const mData = membersRes.data;
@@ -104,7 +108,7 @@ export default function LeagueSettingsScreen() {
     try {
       await apiClient.put(
         `/leagues/${leagueId}`,
-        { name, description },
+        { name, description, custom_medal_names: customMedalNames },
       );
       showAlert("Éxito", "Cambios guardados correctamente.");
     } catch (error) {
@@ -289,6 +293,34 @@ export default function LeagueSettingsScreen() {
             )}
           </View>
         </View>
+
+        {/* PERSONALIZAR MEDALLAS (solo Admin) */}
+        {isAdminOrOwner && (
+          <>
+            <View style={styles.sectionHeaderBox}>
+              <Text style={styles.sectionHeader}>PERSONALIZAR MEDALLAS</Text>
+            </View>
+            <View style={styles.formContainer}>
+              {MEDALS_INFO.map((medal) => (
+                <View key={medal.id} style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>{medal.name} (por defecto)</Text>
+                  <TextInput
+                    style={styles.editableInput}
+                    value={customMedalNames[medal.id] ?? ""}
+                    onChangeText={(text) =>
+                      setCustomMedalNames((prev) => ({
+                        ...prev,
+                        [medal.id]: text.trim(),
+                      }))
+                    }
+                    placeholder={medal.name}
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+              ))}
+            </View>
+          </>
+        )}
 
         {/* MIEMBROS */}
         <View style={styles.sectionHeaderBox}>

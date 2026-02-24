@@ -10,9 +10,7 @@ export default function MainLayout() {
 
   useEffect(() => {
     if (!userId) return;
-    PurchaseManager.initialize(userId).catch(() => {
-      // RevenueCat no disponible (Expo Go, etc.)
-    });
+    PurchaseManager.initialize(userId).catch(() => {});
   }, [userId]);
 
   return <Stack screenOptions={{ headerShown: false }} />;

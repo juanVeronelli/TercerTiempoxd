@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Colors } from "../../../../src/constants/Colors";
@@ -15,12 +15,19 @@ import { useCustomAlert } from "../../../../src/context/AlertContext";
 import apiClient from "../../../../src/api/apiClient";
 import { useCurrentUser } from "../../../../src/hooks/useCurrentUser";
 import { DuelCard } from "../../../../src/components/DuelCard";
-import { ScreenHeader } from "../../../../src/components/ui/ScreenHeader";
+import { LeagueHomeHeader } from "../../../../src/components/ui/LeagueHomeHeader";
 import { UserAvatar } from "../../../../src/components/ui/UserAvatar";
 import { Skeleton } from "../../../../src/components/ui/Skeleton";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { ShareableMatchCard } from "../../../../src/components/share/ShareableMatchCard";
+import { MedalsInfoButton } from "../../../../src/components/medals/MedalsInfoButton";
+import { getMedalDisplayName } from "../../../../src/constants/MedalsInfo";
+import { useLeagueMedalNames } from "../../../../src/hooks/useLeagueMedalNames";
+import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
+import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
+import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
+import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 
 const { width } = Dimensions.get("window");
 
@@ -44,6 +51,36 @@ const THEME = {
   borderColor: "#374151",
 };
 
+const RESULTS_COACHMARK_STEPS = [
+  {
+    title: "Marcador",
+    body: "El resultado del partido: goles por equipo.",
+  },
+  {
+    title: "Tu rendimiento",
+    body: "Tu puntaje, tendencia y posición en este partido.",
+  },
+  {
+    title: "Ranking del partido",
+    body: "El podio y todos los jugadores con sus medallas (MVP, Tronco, etc.). Tocá uno para ver su perfil.",
+  },
+  {
+    title: "Duelo de la fecha",
+    body: "El duelo destacado del partido.",
+  },
+  {
+    title: "Top 3 Prode",
+    body: "Quienes más acertaron en las predicciones.",
+  },
+  {
+    title: "Compartir",
+    body: "Compartí el informe del partido en redes.",
+  },
+];
+
+const SCROLL_OFFSET_PADDING = 100;
+const SCROLL_THEN_STEP_MS = 480;
+
 export default function MatchResultsScreen() {
   const { matchId, returnTo } = useLocalSearchParams<{
     matchId: string;
@@ -58,6 +95,65 @@ export default function MatchResultsScreen() {
   const [players, setPlayers] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
   const [honors, setHonors] = useState<any[]>([]);
+
+  const { shouldShow: showResultsCoachmark, markSeen: markResultsCoachmark } =
+    useCoachmark(CoachmarkKeys.RESULTS);
+  const [coachmarkStep, setCoachmarkStep] = useState(-1);
+  const [targetFrame, setTargetFrame] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const sectionYOffsets = useRef<Record<number, number>>({});
+  const scrollThenStepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const canShowCoachmark = useCoachmarkReady(
+    !loading && showResultsCoachmark && !dismissedThisSession,
+  );
+
+  useEffect(() => {
+    if (canShowCoachmark && coachmarkStep < 0) setCoachmarkStep(0);
+  }, [canShowCoachmark, coachmarkStep]);
+
+  const handleRequestNextStep = useCallback(
+    (nextStep: number) => {
+      if (scrollThenStepTimerRef.current) {
+        clearTimeout(scrollThenStepTimerRef.current);
+        scrollThenStepTimerRef.current = null;
+      }
+      const y = sectionYOffsets.current[nextStep];
+      if (y !== undefined) {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, y - SCROLL_OFFSET_PADDING),
+          animated: true,
+        });
+      }
+      scrollThenStepTimerRef.current = setTimeout(() => {
+        scrollThenStepTimerRef.current = null;
+        setCoachmarkStep(nextStep);
+        setTargetFrame(null);
+      }, SCROLL_THEN_STEP_MS);
+    },
+    [],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      setDismissedThisSession(false);
+      return () => {
+        setDismissedThisSession(true);
+        setCoachmarkStep(-1);
+        setTargetFrame(null);
+        if (scrollThenStepTimerRef.current) {
+          clearTimeout(scrollThenStepTimerRef.current);
+          scrollThenStepTimerRef.current = null;
+        }
+      };
+    }, []),
+  );
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -111,12 +207,15 @@ export default function MatchResultsScreen() {
     }
   };
 
+  const customMedalNames = useLeagueMedalNames(matchData?.league_id ?? null);
+
   if (loading)
     return (
       <SafeAreaView style={styles.container}>
-        <ScreenHeader
-          title="Informe Oficial"
-          subtitle="Resumen del partido y medallas"
+        <LeagueHomeHeader
+          title="INFORME OFICIAL"
+          addTopSafeArea={false}
+          onBackPress={() => router.back()}
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 20 }} />
@@ -137,25 +236,25 @@ export default function MatchResultsScreen() {
 
     // MVP: desde honors (votación). Independiente de posición.
     if (playerHonors.some((h) => h.honor_type === "MVP"))
-      badges.push({ icon: "trophy", color: "#F59E0B", label: "MVP" });
+      badges.push({ icon: "trophy", color: "#F59E0B", label: getMedalDisplayName("mvp", customMedalNames) });
 
     // Posición en ranking (2º, 3º): visual, no exclusivo de otras medallas.
     if (index === 1)
-      badges.push({ icon: "medal", color: "#9CA3AF", label: "2º" });
+      badges.push({ icon: "medal", color: "#9CA3AF", label: getMedalDisplayName("segundo", customMedalNames) });
     if (index === 2)
-      badges.push({ icon: "medal", color: "#B45309", label: "3º" });
+      badges.push({ icon: "medal", color: "#B45309", label: getMedalDisplayName("tercero", customMedalNames) });
 
     // FANTASMA: desde honors. Independiente.
     if (playerHonors.some((h) => h.honor_type === "FANTASMA"))
-      badges.push({ icon: "ghost", color: "#A78BFA", label: "FANTASMA" });
+      badges.push({ icon: "ghost", color: "#A78BFA", label: getMedalDisplayName("fantasma", customMedalNames) });
 
     // TRONCO: desde honors. Independiente (un jugador puede tener Fantasma y Tronco).
     if (playerHonors.some((h) => h.honor_type === "TRONCO"))
-      badges.push({ icon: "tree", color: "#EF4444", label: "TRONCO" });
+      badges.push({ icon: "tree", color: "#EF4444", label: getMedalDisplayName("tronco", customMedalNames) });
 
     // ORACLE: desde honors (Prode). Independiente. Un jugador puede ser MVP y Oracle.
     if (playerHonors.some((h) => h.honor_type === "ORACLE"))
-      badges.push({ icon: "crystal-ball", color: THEME.gold, label: "ORACLE" });
+      badges.push({ icon: "crystal-ball", color: THEME.gold, label: getMedalDisplayName("oracle", customMedalNames) });
 
     return (
       <View style={styles.badgesContainer}>
@@ -228,9 +327,10 @@ export default function MatchResultsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScreenHeader
-        title="Informe Oficial"
-        subtitle="Resumen del partido y medallas"
+      <LeagueHomeHeader
+        title="INFORME OFICIAL"
+        addTopSafeArea={false}
+        onBackPress={() => router.back()}
       />
 
       {/* Hidden shareable card: renderizado fuera de pantalla para ViewShot */}
@@ -250,10 +350,22 @@ export default function MatchResultsScreen() {
       )}
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* SCOREBOARD CON RESULTADO REAL */}
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[0] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 0}
+            style={{ marginBottom: 20 }}
+            onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
+          >
         {matchData && (
           <View style={styles.scoreboardCard}>
             <View style={styles.scoreRow}>
@@ -278,7 +390,20 @@ export default function MatchResultsScreen() {
             </Text>
           </View>
         )}
+          </CoachmarkHighlight>
+        </View>
 
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[1] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 1}
+            style={{ marginBottom: 25 }}
+            onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
+          >
         {myStats && (
           <View style={styles.statCard}>
             <View style={styles.statCardHeader}>
@@ -339,9 +464,84 @@ export default function MatchResultsScreen() {
             </View>
           </View>
         )}
+          </CoachmarkHighlight>
+        </View>
 
-        <View style={styles.sectionHeaderBox}>
+        {/* Quién votó qué (PRO: texto claro; FREE: difuminado + CTA Revelar) */}
+        {(matchData?.votes_breakdown?.length ?? 0) > 0 && (
+          <View style={styles.sectionHeaderBox}>
+            <Text style={styles.sectionHeader}>QUIÉN VOTÓ QUÉ</Text>
+          </View>
+        )}
+        {(matchData?.votes_breakdown?.length ?? 0) > 0 && (
+          <View style={styles.votesRevealCard}>
+            {(() => {
+              const isPro = (matchData?.userPlanType ?? "FREE").toUpperCase() === "PRO";
+              const breakdown = matchData.votes_breakdown as { voter_name: string; target_name: string; overall: number }[];
+              const listContent = (
+                <View style={styles.votesBreakdownList}>
+                  {breakdown.map((v, i) => (
+                    <View key={i} style={styles.votesBreakdownRow}>
+                      <Text style={styles.votesBreakdownText} numberOfLines={1}>
+                        <Text style={{ color: Colors.textSecondary }}>{v.voter_name}</Text>
+                        {" → "}
+                        <Text style={{ color: "white", fontWeight: "600" }}>{v.target_name}</Text>
+                        {" "}
+                        <Text style={{ color: THEME.gold, fontWeight: "700" }}>{Number(v.overall).toFixed(1)}</Text>
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              );
+              if (isPro) {
+                return listContent;
+              }
+              return (
+                <View style={styles.votesRevealLocked}>
+                  <View style={[styles.votesBreakdownList, { opacity: 0.35 }]}>
+                    {breakdown.map((v, i) => (
+                      <View key={i} style={styles.votesBreakdownRow}>
+                        <Text style={styles.votesBreakdownText} numberOfLines={1}>
+                          {v.voter_name} → {v.target_name} {Number(v.overall).toFixed(1)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+                    <View style={styles.votesRevealOverlay} />
+                    <View style={styles.votesRevealCtaBox}>
+                      <Ionicons name="lock-closed" size={32} color={THEME.gold} style={{ marginBottom: 10 }} />
+                      <Text style={styles.votesRevealCtaTitle}>Revelar votos</Text>
+                      <Text style={styles.votesRevealCtaSub}>Con Plan PRO ves quién votó a quién.</Text>
+                      <TouchableOpacity
+                        style={styles.votesRevealCtaButton}
+                        activeOpacity={0.85}
+                        onPress={() => router.push("/(main)/paywall")}
+                      >
+                        <Text style={styles.votesRevealCtaButtonText}>Revelar votos (Plan PRO)</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            })()}
+          </View>
+        )}
+
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[2] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 2}
+            style={{ marginBottom: 25 }}
+            onMeasure={(frame) => coachmarkStep === 2 && setTargetFrame(frame)}
+          >
+        <View style={[styles.sectionHeaderBox, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
           <Text style={styles.sectionHeader}>RANKING DEL PARTIDO</Text>
+          <MedalsInfoButton size={22} />
         </View>
 
         <View style={styles.rankingContainer}>
@@ -404,7 +604,20 @@ export default function MatchResultsScreen() {
             );
           })}
         </View>
+          </CoachmarkHighlight>
+        </View>
 
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[3] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 3}
+            style={{ marginBottom: 25 }}
+            onMeasure={(frame) => coachmarkStep === 3 && setTargetFrame(frame)}
+          >
         <View style={styles.sectionHeaderBox}>
           <Text style={styles.sectionHeader}>DUELO DE LA FECHA</Text>
         </View>
@@ -415,8 +628,21 @@ export default function MatchResultsScreen() {
             leagueId={matchData?.league_id ?? undefined}
           />
         </View>
+          </CoachmarkHighlight>
+        </View>
 
         {/* TOP 3 PRODE justo debajo del duelo */}
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[4] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 4}
+            style={{ marginBottom: 25 }}
+            onMeasure={(frame) => coachmarkStep === 4 && setTargetFrame(frame)}
+          >
         <View style={styles.sectionHeaderBox}>
           <Text style={styles.sectionHeader}>TOP 3 PRODE</Text>
         </View>
@@ -440,7 +666,7 @@ export default function MatchResultsScreen() {
             return top3.map((player, index) => {
               const pts = player.prediction_points ?? 0;
               const medalIcon =
-                index === 0 ? "trophy" : index === 1 ? "medal" : "medal";
+                index === 0 ? "crystal-ball" : index === 1 ? "medal" : "medal";
               const medalColor =
                 index === 0 ? THEME.gold : index === 1 ? "#9CA3AF" : "#B45309";
               return (
@@ -475,7 +701,20 @@ export default function MatchResultsScreen() {
             });
           })()}
         </View>
+          </CoachmarkHighlight>
+        </View>
 
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[5] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 5}
+            style={{ marginBottom: 20 }}
+            onMeasure={(frame) => coachmarkStep === 5 && setTargetFrame(frame)}
+          >
         <TouchableOpacity
           style={styles.shareButton}
           activeOpacity={0.8}
@@ -489,6 +728,8 @@ export default function MatchResultsScreen() {
           />
           <Text style={styles.shareButtonText}>COMPARTIR EN REDES</Text>
         </TouchableOpacity>
+          </CoachmarkHighlight>
+        </View>
 
         <View style={styles.sectionHeaderBox}>
           <Text style={styles.sectionHeader}>VOCES DEL VESTUARIO</Text>
@@ -519,6 +760,26 @@ export default function MatchResultsScreen() {
 
         <View style={{ height: 50 }} />
       </ScrollView>
+
+      {canShowCoachmark && (
+        <CoachmarkModal
+          visible={true}
+          steps={RESULTS_COACHMARK_STEPS}
+          stepIndexProp={coachmarkStep}
+          onRequestNextStep={handleRequestNextStep}
+          onFinish={() => {
+            setDismissedThisSession(true);
+            setCoachmarkStep(-1);
+            setTargetFrame(null);
+            markResultsCoachmark();
+          }}
+          onStepChange={(step) => {
+            setCoachmarkStep(step);
+            if (step === -1) setTargetFrame(null);
+          }}
+          targetFrame={targetFrame}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -620,6 +881,52 @@ const styles = StyleSheet.create({
   },
   trendText: { fontSize: 12, fontWeight: "bold", marginLeft: 2 },
   dividerVertical: { width: 1, height: 30, backgroundColor: "#374151" },
+  votesRevealCard: {
+    backgroundColor: "#1F2937",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#374151",
+    marginBottom: 25,
+    overflow: "hidden",
+    minHeight: 120,
+  },
+  votesBreakdownList: { padding: 14 },
+  votesBreakdownRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "rgba(55,65,81,0.5)" },
+  votesBreakdownText: { color: "#E5E7EB", fontSize: 13 },
+  votesRevealLocked: { position: "relative", minHeight: 180 },
+  votesRevealOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(17,24,39,0.85)",
+  },
+  votesRevealCtaBox: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  votesRevealCtaTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  votesRevealCtaSub: {
+    color: "#9CA3AF",
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  votesRevealCtaButton: {
+    backgroundColor: THEME.gold,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  votesRevealCtaButtonText: {
+    color: "black",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
   sectionHeaderBox: { marginBottom: 12, marginTop: 5 },
   sectionHeader: {
     color: "#F59E0B",

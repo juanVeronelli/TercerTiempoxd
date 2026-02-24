@@ -164,7 +164,7 @@ export const DuelCard = ({
 
   // Título Dinámico
   const headerText = isFinished ? "GANADOR DEL DUELO" : "DUELO ESTELAR";
-  const headerIcon = isFinished ? "trophy" : "sword-cross";
+  const headerIcon = "sword-cross";
 
   const renderPlayerColumn = (player: any) => {
     const isWinner = winnerId === player.id;
@@ -175,29 +175,13 @@ export const DuelCard = ({
     const avg = Number(player.stats?.overall || 5).toFixed(1);
     const mvps = player.stats?.mvps || 0;
 
-    const teamLabel =
-      player.team === "A" ? "EQ. A" : player.team === "B" ? "EQ. B" : "";
-    const teamColor =
-      player.team === "A"
-        ? Colors.teamA
-        : player.team === "B"
-          ? Colors.teamB
-          : Colors.textSecondary;
-
     const hasFrame = player.avatar_frame && player.avatar_frame !== "simple";
     const borderColor = isWinner || hasFrame ? Colors.accentGold : Colors.borderLight;
     const borderWidth = isWinner ? 3 : 2;
 
     return (
       <View style={[styles.playerColumn, { opacity }]}>
-        {/* Etiqueta de Equipo */}
-        {teamLabel ? (
-          <View style={[styles.teamTag, { backgroundColor: teamColor }]}>
-            <Text style={styles.teamTagText}>{teamLabel}</Text>
-          </View>
-        ) : (
-          <View style={{ height: 20 }} />
-        )}
+        <View style={{ height: 20 }} />
 
         {/* Avatar */}
         <TouchableOpacity
@@ -213,8 +197,8 @@ export const DuelCard = ({
             />
           </View>
           {isWinner && (
-            <View style={styles.crownBadge}>
-              <MaterialCommunityIcons name="crown" size={14} color={Colors.textInverse} />
+            <View style={styles.duelWinnerBadge}>
+              <MaterialCommunityIcons name="sword-cross" size={12} color={Colors.textInverse} />
             </View>
           )}
         </TouchableOpacity>
@@ -400,14 +384,6 @@ const styles = StyleSheet.create({
   },
   playerColumn: { alignItems: "center", flex: 1 },
 
-  teamTag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  teamTagText: { color: "white", fontSize: 8, fontWeight: "900" },
-
   avatarContainerRelative: { position: "relative", marginBottom: 8 },
   avatarCircle: {
     width: 64,
@@ -418,7 +394,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarImg: { width: "100%", height: "100%", borderRadius: 32 },
-  crownBadge: {
+  duelWinnerBadge: {
     position: "absolute",
     top: -8,
     right: -8,

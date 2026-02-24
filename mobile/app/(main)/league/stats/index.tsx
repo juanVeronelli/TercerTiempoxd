@@ -26,6 +26,10 @@ import apiClient from "../../../../src/api/apiClient";
 import { formatPositionForDisplay } from "../../../../src/constants/Positions";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
+import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
+import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
+import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 import Svg, {
   Polygon,
   Line,
@@ -37,6 +41,21 @@ import Svg, {
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Color dorado para acentos PRO
 const PRO_GOLD = "#D4AF37";
+
+const STATS_COACHMARK_STEPS = [
+  {
+    title: "Tu racha",
+    body: "Acá ves tu racha: G (ganado), P (perdido), E (empatado). Son los últimos partidos que jugaste.",
+  },
+  {
+    title: "Promedios",
+    body: "Tu promedio histórico y el del mes. Compará cómo venís en el tiempo.",
+  },
+  {
+    title: "Historial reciente",
+    body: "Tocá cualquier partido para ver el detalle. Si tenés PRO, más abajo ves gráficos de tendencia y perfil técnico vs la liga.",
+  },
+];
 
 // --- UTILS (posición en español) ---
 
@@ -279,6 +298,7 @@ export default function MyStatsScreen() {
   const [stats, setStats] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [leagueName, setLeagueName] = useState<string>("");
 
   const fetchData = async () => {
     try {
@@ -291,6 +311,7 @@ export default function MyStatsScreen() {
       setUserData(uRes.data.user);
       const leagues = uRes.data?.leagues ?? [];
       const currentLeague = leagues.find((l: any) => l.id === leagueId);
+      setLeagueName(currentLeague?.name ?? "");
       setIsAdmin(
         currentLeague?.role === "ADMIN" || currentLeague?.role === "OWNER"
       );
@@ -332,6 +353,25 @@ export default function MyStatsScreen() {
 
   const matches = stats?.recentMatches ?? [];
   const isStatsLocked = matches.length === 0;
+  const { shouldShow: showStatsCoachmark, markSeen: markStatsCoachmark } =
+    useCoachmark(CoachmarkKeys.STATS);
+  const [coachmarkStep, setCoachmarkStep] = useState(-1);
+  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const canShowCoachmark = useCoachmarkReady(
+    showStatsCoachmark && !dismissedThisSession,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      setDismissedThisSession(false);
+      return () => {
+        setDismissedThisSession(true);
+        setCoachmarkStep(-1);
+        setTargetFrame(null);
+      };
+    }, []),
+  );
 
   if (loading)
     return (
@@ -348,11 +388,11 @@ export default function MyStatsScreen() {
   if (isStatsLocked) {
     return (
       <SafeAreaView style={styles.container} edges={["bottom"]}>
-        <ScreenHeader title="MI RENDIMIENTO" showBack />
+        <ScreenHeader title="MI RENDIMIENTO" showBack={false} />
         <View style={styles.softLockContainer}>
           <EmptyState
             title="Sin estadísticas aún"
-            message="Juega tu primer partido para desbloquear tus tarjetas de rendimiento y evolución."
+            message="Juega tu primer partido en cancha (fútbol real) para desbloquear tus tarjetas de rendimiento y evolución."
             iconName="activity"
             actionLabel={isAdmin ? "Crear Partido" : undefined}
             onAction={
@@ -372,7 +412,24 @@ export default function MyStatsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScreenHeader title="MI RENDIMIENTO" showBack />
+      <ScreenHeader title="MI RENDIMIENTO" showBack={false} />
+      {canShowCoachmark && (
+        <CoachmarkModal
+          visible={true}
+          steps={STATS_COACHMARK_STEPS}
+          onFinish={() => {
+            setDismissedThisSession(true);
+            setCoachmarkStep(-1);
+            setTargetFrame(null);
+            markStatsCoachmark();
+          }}
+          onStepChange={(step) => {
+            setCoachmarkStep(step);
+            if (step === -1) setTargetFrame(null);
+          }}
+          targetFrame={targetFrame}
+        />
+      )}
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -388,121 +445,205 @@ export default function MyStatsScreen() {
           />
         }
       >
-        {/* KPIS */}
-        <View style={styles.kpiContainer}>
-          <View style={styles.kpiCard}>
-            <View style={styles.kpiHeader}>
-              <Ionicons name="time-outline" size={14} color="#9CA3AF" />
-              <Text style={styles.kpiLabel}>HISTÓRICO</Text>
-            </View>
-            <Text style={styles.kpiValueMain}>
-              {stats?.historicalAvg || "0.0"}
-            </Text>
-          </View>
-          <View style={[styles.kpiCard, { borderColor: Colors.primary }]}>
-            <View style={styles.kpiHeader}>
-              <Ionicons
-                name="calendar-outline"
-                size={14}
-                color={Colors.primary}
-              />
-              <Text style={[styles.kpiLabel, { color: Colors.primary }]}>
-                ESTE MES
-              </Text>
-            </View>
-            <Text style={[styles.kpiValueMain, { color: Colors.primary }]}>
-              {stats?.monthAvg || "0.0"}
-            </Text>
-          </View>
+        <View style={styles.subtitleBlock}>
+          <Text style={styles.subtitle} numberOfLines={2}>
+            {leagueName
+              ? `Tus estadísticas personales en todos los partidos de ${leagueName}`
+              : "Tus estadísticas personales en todos los partidos"}
+          </Text>
         </View>
 
-        {/* RACHA */}
-        {stats?.form && stats.form.length > 0 && (
-          <View style={styles.formContainer}>
-            <Text style={styles.sectionHeader}>RACHA ACTUAL</Text>
-            <View style={styles.formBubbles}>
-              {stats.form.map((res: string, i: number) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.formBubble,
-                    res === "W"
-                      ? styles.bgW
-                      : res === "L"
-                        ? styles.bgL
-                        : styles.bgD,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.formText,
-                      res === "W"
-                        ? styles.textW
-                        : res === "L"
-                          ? styles.textL
-                          : styles.textD,
-                    ]}
-                  >
-                    {res === "W" ? "V" : res === "L" ? "D" : "E"}
-                  </Text>
-                </View>
-              ))}
+        {/* KPIS */}
+        <CoachmarkHighlight
+          highlighted={canShowCoachmark && coachmarkStep === 1}
+          style={{ marginBottom: 16 }}
+          onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
+        >
+          <View style={styles.kpiContainer}>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabelAbove}>Promedio Histórico</Text>
+              <View style={styles.kpiHeader}>
+                <Ionicons name="time-outline" size={14} color="#9CA3AF" />
+                <Text style={styles.kpiLabel}>HISTÓRICO</Text>
+              </View>
+              <Text style={styles.kpiValueMain}>
+                {stats?.historicalAvg || "0.0"}
+              </Text>
+            </View>
+            <View style={[styles.kpiCard, { borderColor: Colors.primary }]}>
+              <Text style={[styles.kpiLabelAbove, { color: Colors.primary }]}>
+                Promedio del Mes
+              </Text>
+              <View style={styles.kpiHeader}>
+                <Ionicons
+                  name="calendar-outline"
+                  size={14}
+                  color={Colors.primary}
+                />
+                <Text style={[styles.kpiLabel, { color: Colors.primary }]}>
+                  ESTE MES
+                </Text>
+              </View>
+              <Text style={[styles.kpiValueMain, { color: Colors.primary }]}>
+                {stats?.monthAvg || "0.0"}
+              </Text>
             </View>
           </View>
+        </CoachmarkHighlight>
+
+        {/* RACHA: G (Ganado), P (Perdido), E (Empatado) + Últimos N partidos */}
+        {stats?.form && stats.form.length > 0 && (
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 0}
+            style={{ marginBottom: 20 }}
+            onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
+          >
+            <View style={styles.formContainer}>
+              <Text style={styles.sectionHeader}>RACHA ACTUAL</Text>
+              <View style={styles.formBubbles}>
+                {stats.form.map((res: string, i: number) => {
+                  const isW = res === "W";
+                  const isL = res === "L";
+                  const letter = isW ? "G" : isL ? "P" : "E";
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        styles.formBubble,
+                        isW ? styles.bgW : isL ? styles.bgL : styles.bgD,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.formText,
+                          isW ? styles.textW : isL ? styles.textL : styles.textD,
+                        ]}
+                      >
+                        {letter}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={styles.formHint}>
+                Últimos {stats.form.length} partido{stats.form.length !== 1 ? "s" : ""}
+              </Text>
+            </View>
+          </CoachmarkHighlight>
         )}
 
         {/* HISTORIAL */}
-        <View style={styles.sectionHeaderBox}>
-          <Text style={styles.sectionHeader}>HISTORIAL RECIENTE</Text>
-        </View>
-        {matchesToShow.length > 0 ? (
-          matchesToShow.map((stat: any, i: number) => (
-            <TouchableOpacity
-              key={i}
-              style={styles.matchCard}
-              onPress={() =>
-                router.push({
-                  pathname: "/(main)/league/match/results",
-                  params: { matchId: stat.matches.id, returnTo: "stats" },
-                })
-              }
-            >
-              <View style={styles.matchInfo}>
-                <Text style={styles.matchDate}>
-                  {format(new Date(stat.matches.date_time), "dd MMM", {
-                    locale: es,
-                  }).toUpperCase()}
-                </Text>
-                <Text style={styles.matchLocation}>
-                  {stat.matches.location_name}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.ratingBadge,
-                  Number(stat.rating) >= 8
-                    ? styles.bgGreen
-                    : Number(stat.rating) >= 6
-                      ? styles.bgYellow
-                      : styles.bgRed,
-                ]}
+        <CoachmarkHighlight
+          highlighted={canShowCoachmark && coachmarkStep === 2}
+          style={{ marginBottom: 8 }}
+          onMeasure={(frame) => coachmarkStep === 2 && setTargetFrame(frame)}
+        >
+          <View style={styles.sectionHeaderBox}>
+            <Text style={styles.sectionHeader}>HISTORIAL RECIENTE</Text>
+          </View>
+          {matchesToShow.length > 0 ? (
+          matchesToShow.map((stat: any, i: number) => {
+            const matchDate = new Date(stat.matches.date_time);
+            const today = new Date();
+            const isToday =
+              matchDate.getDate() === today.getDate() &&
+              matchDate.getMonth() === today.getMonth() &&
+              matchDate.getFullYear() === today.getFullYear();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const isYesterday =
+              matchDate.getDate() === yesterday.getDate() &&
+              matchDate.getMonth() === yesterday.getMonth() &&
+              matchDate.getFullYear() === yesterday.getFullYear();
+            const dateLabel = isToday
+              ? "Hoy"
+              : isYesterday
+                ? "Ayer"
+                : format(matchDate, "dd/MM", { locale: es });
+            const ratingNum = Number(stat.rating);
+            const ratingTier =
+              ratingNum >= 8 ? "green" : ratingNum >= 6 ? "yellow" : "red";
+            return (
+              <TouchableOpacity
+                key={i}
+                style={styles.matchCard}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(main)/league/match/results",
+                    params: { matchId: stat.matches.id, returnTo: "stats" },
+                  })
+                }
+                activeOpacity={0.85}
               >
-                <Text
-                  style={[
-                    styles.ratingText,
-                    Number(stat.rating) >= 8
-                      ? styles.textGreen
-                      : Number(stat.rating) >= 6
-                        ? styles.textYellow
-                        : styles.textRed,
-                  ]}
-                >
-                  {stat.rating}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#4B5563" />
-            </TouchableOpacity>
-          ))
+                <View style={styles.matchCardAccent} />
+                <View style={styles.matchCardBody}>
+                  <View style={styles.matchCardMain}>
+                    <View style={styles.matchCardMeta}>
+                      <Text style={styles.matchCardDate}>
+                        {format(matchDate, "dd MMM", { locale: es })}
+                      </Text>
+                      <View style={styles.matchCardPill}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={12}
+                          color="#6B7280"
+                        />
+                        <Text style={styles.matchCardPillText}>
+                          Jugado · {dateLabel}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.matchCardLocationRow}>
+                      <Ionicons
+                        name="location-outline"
+                        size={16}
+                        color="#9CA3AF"
+                        style={styles.matchCardLocationIcon}
+                      />
+                      <Text
+                        style={styles.matchCardLocation}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {stat.matches.location_name}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.matchCardRight}>
+                    <View
+                      style={[
+                        styles.matchCardRatingPill,
+                        ratingTier === "green"
+                          ? styles.ratingPillGreen
+                          : ratingTier === "yellow"
+                            ? styles.ratingPillYellow
+                            : styles.ratingPillRed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.matchCardRatingText,
+                          ratingTier === "green"
+                            ? styles.ratingTextGreen
+                            : ratingTier === "yellow"
+                              ? styles.ratingTextYellow
+                              : styles.ratingTextRed,
+                        ]}
+                      >
+                        {stat.rating}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color="#4B5563"
+                      style={styles.matchCardChevron}
+                    />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         ) : (
           <EmptyState
             title="No hay partidos recientes"
@@ -510,6 +651,7 @@ export default function MyStatsScreen() {
             iconName="activity"
           />
         )}
+        </CoachmarkHighlight>
 
         <NativeAdCardWrapper
           style={{ marginTop: 20, marginBottom: 20 }}
@@ -617,6 +759,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   content: { paddingHorizontal: 20 },
+  subtitleBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  subtitle: {
+    color: "#9CA3AF",
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 18,
+  },
 
   kpiContainer: { flexDirection: "row", justifyContent: "space-between" },
   kpiCard: {
@@ -628,6 +783,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#374151",
     height: 100,
+  },
+  kpiLabelAbove: {
+    color: "#9CA3AF",
+    fontSize: 10,
+    fontWeight: "700",
+    marginBottom: 4,
   },
   kpiHeader: {
     flexDirection: "row",
@@ -647,6 +808,12 @@ const styles = StyleSheet.create({
   },
   formContainer: { marginTop: 25, alignItems: "center" },
   formBubbles: { flexDirection: "row", gap: 10, marginTop: 10 },
+  formHint: {
+    color: "#6B7280",
+    fontSize: 10,
+    fontWeight: "600",
+    marginTop: 8,
+  },
   formBubble: {
     width: 32,
     height: 32,
@@ -658,26 +825,89 @@ const styles = StyleSheet.create({
   formText: { fontSize: 12, fontWeight: "900" },
   matchCard: {
     backgroundColor: "#1F2937",
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: "#374151",
+    position: "relative",
+    overflow: "hidden",
   },
-  matchInfo: { flex: 1 },
-  matchDate: { color: "white", fontSize: 14, fontWeight: "bold" },
-  matchLocation: { color: "#9CA3AF", fontSize: 12, marginTop: 2 },
-  ratingBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  matchCardAccent: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    backgroundColor: Colors.primary,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+  },
+  matchCardBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingLeft: 20,
+  },
+  matchCardMain: { flex: 1, minWidth: 0 },
+  matchCardMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  matchCardDate: {
+    color: "#9CA3AF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  matchCardPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#111827",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  matchCardPillText: {
+    color: "#6B7280",
+    fontSize: 10,
+    fontWeight: "600",
+  },
+  matchCardLocationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  matchCardLocationIcon: { marginRight: 6 },
+  matchCardLocation: {
+    color: "#F3F4F6",
+    fontSize: 15,
+    fontWeight: "700",
+    flex: 1,
+  },
+  matchCardRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginLeft: 12,
+  },
+  matchCardRatingPill: {
+    minWidth: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
+    paddingHorizontal: 4,
   },
-  ratingText: { fontWeight: "900", fontSize: 12 },
+  matchCardRatingText: { fontSize: 16, fontWeight: "900" },
+  matchCardChevron: { opacity: 0.8 },
+  ratingPillGreen: { backgroundColor: "rgba(16, 185, 129, 0.2)" },
+  ratingTextGreen: { color: "#10B981" },
+  ratingPillYellow: { backgroundColor: "rgba(245, 158, 11, 0.2)" },
+  ratingTextYellow: { color: "#F59E0B" },
+  ratingPillRed: { backgroundColor: "rgba(239, 68, 68, 0.2)" },
+  ratingTextRed: { color: "#EF4444" },
   chartCard: {
     backgroundColor: "#1F2937",
     borderRadius: 20,

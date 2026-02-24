@@ -12,13 +12,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
 import { NotificationBell } from "../NotificationBell";
 
-const SIDE_WIDTH = 88;
-
 export type ScreenHeaderProps = {
   /** Título centrado en el header */
   title: string;
   /** Si es true, muestra el botón Atrás a la izquierda (default: false) */
   showBack?: boolean;
+  /** Acción custom al presionar Atrás; si no se pasa, usa router.back() */
+  onBackPress?: () => void;
   /** Si es true, muestra la campana de notificaciones a la derecha (default: true) */
   showBell?: boolean;
   /** Elemento opcional a la derecha (reemplaza o complementa la campana según showBell) */
@@ -31,14 +31,15 @@ export type ScreenHeaderProps = {
   style?: ViewStyle;
 };
 
+const HEADER_HEIGHT = 44;
+
 /**
- * Cabecera unificada con centrado matemático perfecto.
- * Usa contenedores de ancho fijo a izquierda y derecha para que el título
- * quede centrado independientemente de si hay botón atrás o campana.
+ * Cabecera unificada: título centrado absoluto, acciones a los lados.
  */
 export function ScreenHeader({
   title,
   showBack = false,
+  onBackPress,
   showBell = true,
   rightAction,
   centerElement,
@@ -53,30 +54,38 @@ export function ScreenHeader({
       style={[
         styles.container,
         {
-          paddingTop: insets.top || 12,
-          paddingBottom: 12,
+          paddingTop: insets.top || 10,
+          minHeight: HEADER_HEIGHT + (insets.top || 10),
         },
         style,
       ]}
     >
-      {/* Izquierda: ancho fijo 88 o 0 si no hay back y centro a la izq (Home) */}
-      <View style={[styles.side, !showBack && centerAlign === "left" && styles.sideCollapsed]}>
+      {/* Izquierda */}
+      <View style={styles.leftSlot}>
         {showBack ? (
           <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backBtn}
-            activeOpacity={0.8}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            onPress={onBackPress ?? (() => router.back())}
+            style={styles.iconBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Ionicons name="chevron-back" size={28} color={Colors.white} />
+            <Ionicons name="arrow-back" size={24} color={Colors.white} />
           </TouchableOpacity>
-        ) : (
-          <View style={styles.placeholder} />
-        )}
+        ) : null}
       </View>
 
-      {/* Centro: título o elemento custom */}
-      <View style={[styles.center, centerAlign === "left" && styles.centerLeft]}>
+      {/* Centro: título centrado en la fila (alineado con iconos) */}
+      <View
+        style={[
+          styles.centerSlot,
+          {
+            top: insets.top || 10,
+            height: HEADER_HEIGHT,
+          },
+          centerAlign === "left" && styles.centerSlotLeft,
+        ]}
+        pointerEvents="box-none"
+      >
         {centerElement ?? (
           <Text style={styles.title} numberOfLines={1}>
             {title}
@@ -84,14 +93,11 @@ export function ScreenHeader({
         )}
       </View>
 
-      {/* Derecha: ancho fijo 48 para equilibrio */}
-      <View style={[styles.side, styles.rightRow]}>
+      {/* Derecha: iconos alineados */}
+      <View style={styles.rightSlot}>
         {rightAction}
-        {showBell ? (
-          <NotificationBell />
-        ) : !rightAction ? (
-          <View style={styles.placeholder} />
-        ) : null}
+        {showBell ? <NotificationBell /> : null}
+        {!rightAction && !showBell ? <View style={{ width: 44 }} /> : null}
       </View>
     </View>
   );
@@ -103,44 +109,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
+    paddingBottom: 12,
     backgroundColor: Colors.background,
   },
-  side: {
-    width: SIDE_WIDTH,
-    alignItems: "flex-start",
+  leftSlot: {
+    minWidth: 44,
+    height: HEADER_HEIGHT,
     justifyContent: "center",
+    alignItems: "flex-start",
   },
-  sideCollapsed: {
-    width: 0,
-    minWidth: 0,
-    overflow: "hidden",
-  },
-  rightRow: {
-    alignItems: "flex-end",
-    flexDirection: "row",
-    gap: 8,
-  },
-  backBtn: {
-    padding: 4,
-    marginLeft: -4,
-  },
-  placeholder: {
-    width: SIDE_WIDTH,
-    height: 40,
-  },
-  center: {
-    flex: 1,
+  iconBtn: {
+    width: 44,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 8,
+    marginLeft: -8,
   },
-  centerLeft: {
+  centerSlot: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 64,
+  },
+  centerSlotLeft: {
     alignItems: "flex-start",
-    paddingLeft: 0,
+    paddingLeft: 44 + 8,
+  },
+  rightSlot: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    minWidth: 44,
   },
   title: {
     color: Colors.white,
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
 });

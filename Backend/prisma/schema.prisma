@@ -72,12 +72,14 @@ model users {
 // LIGAS Y MIEMBROS (ESTADÍSTICAS HISTÓRICAS)
 // ---------------------------------------------------------
 model leagues {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @db.VarChar(100)
-  description String?
-  invite_code String    @unique @db.VarChar(10)
-  admin_id    String?   @db.Uuid
-  created_at  DateTime? @default(now()) @db.Timestamp(6)
+  id                 String    @id @default(uuid()) @db.Uuid
+  name               String    @db.VarChar(100)
+  description        String?
+  invite_code        String    @unique @db.VarChar(10)
+  admin_id           String?   @db.Uuid
+  created_at         DateTime? @default(now()) @db.Timestamp(6)
+  /** Mapeo opcional: id de medalla -> nombre personalizado (ej. tronco -> "Carnicero") */
+  custom_medal_names Json?
 
   // Relaciones
   admin              users?               @relation(fields: [admin_id], references: [id], onDelete: Cascade, onUpdate: NoAction)

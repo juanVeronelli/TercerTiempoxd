@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { useRouter, useGlobalSearchParams } from "expo-router";
+import { useRouter, useGlobalSearchParams, useFocusEffect } from "expo-router";
 import { useCurrentLeagueId } from "../../../../src/context/LeagueContext";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -19,6 +19,10 @@ import apiClient from "../../../../src/api/apiClient";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { ShareableRankingTableCard } from "../../../../src/components/share/ShareableRankingTableCard";
+import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
+import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
+import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
+import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 
 // --- CONSTANTES ---
 
@@ -48,6 +52,21 @@ type PlayerStats = {
 
 const STAT_COL_WIDTH = 45;
 
+const TABLE_COACHMARK_STEPS = [
+  {
+    title: "Filtrar por período",
+    body: "Acá podés ver el ranking por histórico, este mes o esta semana. Tocá cada pestaña para cambiar.",
+  },
+  {
+    title: "Resumen total",
+    body: "Cantidad de jugadores, quién va primero y el mejor promedio del período elegido.",
+  },
+  {
+    title: "Tabla de posiciones",
+    body: "La tabla completa: PJ (partidos jugados), G, P y PROM. Tocá una columna para ordenar.",
+  },
+];
+
 export default function RankingTableScreen() {
   const router = useRouter();
   const params = useGlobalSearchParams<{ leagueId?: string }>();
@@ -60,6 +79,26 @@ export default function RankingTableScreen() {
 
   const [timeFilter, setTimeFilter] = useState<"total" | "month" | "week">(
     "total",
+  );
+
+  const { shouldShow: showTableCoachmark, markSeen: markTableCoachmark } =
+    useCoachmark(CoachmarkKeys.TABLE);
+  const [coachmarkStep, setCoachmarkStep] = useState(-1);
+  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const canShowCoachmark = useCoachmarkReady(
+    showTableCoachmark && !dismissedThisSession,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      setDismissedThisSession(false);
+      return () => {
+        setDismissedThisSession(true);
+        setCoachmarkStep(-1);
+        setTargetFrame(null);
+      };
+    }, []),
   );
 
   useEffect(() => {
@@ -174,39 +213,68 @@ export default function RankingTableScreen() {
         </View>
       )}
 
+      {canShowCoachmark && (
+        <CoachmarkModal
+          visible={true}
+          steps={TABLE_COACHMARK_STEPS}
+          onFinish={() => {
+            setDismissedThisSession(true);
+            setCoachmarkStep(-1);
+            setTargetFrame(null);
+            markTableCoachmark();
+          }}
+          onStepChange={(step) => {
+            setCoachmarkStep(step);
+            if (step === -1) setTargetFrame(null);
+          }}
+          targetFrame={targetFrame}
+        />
+      )}
+
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         {/* TABS */}
-        <View style={styles.tabContainer}>
-          {(["total", "month", "week"] as const).map((item) => (
-            <TouchableOpacity
-              key={item}
-              style={[
-                styles.tabButton,
-                timeFilter === item && styles.tabButtonActive,
-              ]}
-              onPress={() => setTimeFilter(item)}
-            >
-              <Text
+        <CoachmarkHighlight
+          highlighted={canShowCoachmark && coachmarkStep === 0}
+          style={{ marginBottom: 16 }}
+          onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
+        >
+          <View style={styles.tabContainer}>
+            {(["total", "month", "week"] as const).map((item) => (
+              <TouchableOpacity
+                key={item}
                 style={[
-                  styles.tabText,
-                  timeFilter === item && styles.tabTextActive,
+                  styles.tabButton,
+                  timeFilter === item && styles.tabButtonActive,
                 ]}
+                onPress={() => setTimeFilter(item)}
               >
-                {item === "total"
-                  ? "HISTÓRICO"
-                  : item === "month"
-                    ? "ESTE MES"
-                    : "SEMANA"}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.tabText,
+                    timeFilter === item && styles.tabTextActive,
+                  ]}
+                >
+                  {item === "total"
+                    ? "HISTÓRICO"
+                    : item === "month"
+                      ? "ESTE MES"
+                      : "SEMANA"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </CoachmarkHighlight>
 
         {/* DASHBOARD */}
-        <View style={styles.statCard}>
+        <CoachmarkHighlight
+          highlighted={canShowCoachmark && coachmarkStep === 1}
+          style={{ marginBottom: 16 }}
+          onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
+        >
+          <View style={styles.statCard}>
           <View style={styles.statCardHeader}>
             <Ionicons name="analytics" size={14} color="#9CA3AF" />
             <Text style={styles.statCardTitle}>
@@ -236,13 +304,19 @@ export default function RankingTableScreen() {
             </View>
           </View>
         </View>
+        </CoachmarkHighlight>
 
-        <View style={styles.sectionHeaderBox}>
-          <Text style={styles.sectionHeader}>TABLA DE POSICIONES</Text>
-        </View>
+        <CoachmarkHighlight
+          highlighted={canShowCoachmark && coachmarkStep === 2}
+          style={{ marginBottom: 8 }}
+          onMeasure={(frame) => coachmarkStep === 2 && setTargetFrame(frame)}
+        >
+          <View style={styles.sectionHeaderBox}>
+            <Text style={styles.sectionHeader}>TABLA DE POSICIONES</Text>
+          </View>
 
-        {/* TABLA */}
-        <View style={styles.rankingContainer}>
+          {/* TABLA */}
+          <View style={styles.rankingContainer}>
           <View style={styles.tableLabels}>
             <TouchableOpacity
               style={styles.colPlayerHeader}
@@ -418,7 +492,8 @@ export default function RankingTableScreen() {
               );
             })
           )}
-        </View>
+          </View>
+        </CoachmarkHighlight>
 
         <TouchableOpacity
           style={styles.shareButton}

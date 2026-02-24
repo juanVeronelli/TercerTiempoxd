@@ -42,7 +42,8 @@ export function AdminFirstMatchHero({
         <View style={styles.textContainer}>
           <Text style={styles.title}>PRIMER PARTIDO</Text>
           <Text style={styles.description}>
-            La liga está lista. Convoca a los jugadores y da el pitazo inicial.
+            La liga está lista. Convoca a los jugadores y programa el primer
+            partido de fútbol en cancha (5, 7 u 11).
           </Text>
         </View>
         <TouchableOpacity

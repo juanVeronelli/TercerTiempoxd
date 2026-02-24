@@ -15,8 +15,6 @@ export default function Index() {
   useEffect(() => {
     const init = async () => {
       try {
-        // BORRAR ESTO DESPUES DE PROBAR
-        await AsyncStorage.removeItem(ONBOARDING_VIEWED_KEY);
         const viewed = await AsyncStorage.getItem(ONBOARDING_VIEWED_KEY);
         setOnboardingViewed(viewed === "true");
       } catch (error) {
