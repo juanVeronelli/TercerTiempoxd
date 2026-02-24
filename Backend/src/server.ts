@@ -16,6 +16,10 @@ const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
+// Detrás de proxies (Railway, etc.) Express debe confiar en X-Forwarded-For
+// para que express-rate-limit pueda identificar bien al cliente.
+app.set("trust proxy", 1);
+
 app.use(helmet({ contentSecurityPolicy: false }));
 app.disable("x-powered-by");
 app.use(generalLimiter);
