@@ -127,6 +127,6 @@ export const SHOWCASE_OPTIONS: ShowcaseOptionPreset[] = [
 ];
 
 export const LEGAL_URLS = {
-  privacy: "https://tu-web-generica.com/privacy",
-  terms: "https://tu-web-generica.com/terms",
+  privacy: "https://tercertiempoxd.com/privacidad",
+  terms: "http://tercertiempoxd.com/terminos",
 } as const;

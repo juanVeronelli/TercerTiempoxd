@@ -34,8 +34,31 @@ const storage = new CloudinaryStorage({
   },
 });
 
+const leagueStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async () => ({
+    folder: "tercer-tiempo-leagues",
+    format: "jpg",
+    public_id: `league-${Date.now()}`,
+    transformation: [{ width: 400, height: 400, crop: "fill" }],
+  }),
+});
+
 export const upload = multer({
   storage,
+  limits: { fileSize: MAX_AVATAR_SIZE_BYTES },
+  fileFilter: (req, file, cb) => {
+    const mime = file.mimetype?.toLowerCase();
+    if (mime && ALLOWED_MIMETYPES.includes(mime)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Formato de imagen no válido. Use JPEG, PNG, GIF o WebP."));
+    }
+  },
+});
+
+export const uploadLeaguePhoto = multer({
+  storage: leagueStorage,
   limits: { fileSize: MAX_AVATAR_SIZE_BYTES },
   fileFilter: (req, file, cb) => {
     const mime = file.mimetype?.toLowerCase();

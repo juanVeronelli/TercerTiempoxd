@@ -41,6 +41,8 @@ function MedalRow({ medal }: { medal: MedalItem }) {
 }
 
 export function MedalsInfoModal({ visible, onClose }: MedalsInfoModalProps) {
+  const medals = MEDALS_INFO ?? [];
+
   return (
     <Modal
       visible={visible}
@@ -55,7 +57,7 @@ export function MedalsInfoModal({ visible, onClose }: MedalsInfoModalProps) {
             <View style={styles.headerIconBox}>
               <Ionicons name="information-circle" size={28} color={Colors.primary} />
             </View>
-            <Text style={styles.title}>Info de Medallas</Text>
+            <Text style={styles.title}>Glosario de Medallas</Text>
             <Text style={styles.subtitle}>
               Qué significa cada medalla y cómo se consigue
             </Text>
@@ -72,10 +74,20 @@ export function MedalsInfoModal({ visible, onClose }: MedalsInfoModalProps) {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {MEDALS_INFO.map((medal) => (
-              <MedalRow key={medal.id} medal={medal} />
-            ))}
-            <View style={{ height: 24 }} />
+            {medals.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>
+                  No hay medallas configuradas todavía.
+                </Text>
+              </View>
+            ) : (
+              <>
+                {medals.map((medal) => (
+                  <MedalRow key={medal.id} medal={medal} />
+                ))}
+                <View style={{ height: 24 }} />
+              </>
+            )}
           </ScrollView>
         </View>
       </View>
@@ -93,8 +105,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: "85%",
     width: SCREEN_WIDTH,
+    height: "70%",
+    maxHeight: "70%",
   },
   handle: {
     width: 40,
@@ -132,8 +145,18 @@ const styles = StyleSheet.create({
     right: 20,
     padding: 4,
   },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 20, paddingTop: 16 },
+  scroll: { flex: 1, minHeight: 200 },
+  scrollContent: { padding: 20, paddingTop: 16, paddingBottom: 24 },
+  emptyWrap: {
+    paddingVertical: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    textAlign: "center",
+  },
   medalRow: {
     flexDirection: "row",
     alignItems: "flex-start",

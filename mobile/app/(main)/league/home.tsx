@@ -10,6 +10,7 @@ import {
   FlatList,
   Dimensions,
   RefreshControl,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCurrentUser } from "../../../src/hooks/useCurrentUser";
@@ -425,9 +426,16 @@ export default function LeagueHomeScreen() {
               isSelected && { backgroundColor: Colors.accentGold },
             ]}
           >
-            <Text style={[styles.avatarText, isSelected && { color: Colors.textInverse }]}>
-              {initial}
-            </Text>
+            {item.profile_photo_url ? (
+              <Image
+                source={{ uri: item.profile_photo_url }}
+                style={styles.leagueAvatarImage}
+              />
+            ) : (
+              <Text style={[styles.avatarText, isSelected && { color: Colors.textInverse }]}>
+                {initial}
+              </Text>
+            )}
           </View>
           <View style={styles.cardInfo}>
             <Text
@@ -1239,6 +1247,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarText: { color: Colors.textHeading, fontSize: 18, fontWeight: "900" },
+  leagueAvatarImage: { width: 44, height: 44, borderRadius: 22 },
   cardInfo: { flex: 1 },
   leagueNameText: {
     color: Colors.white,

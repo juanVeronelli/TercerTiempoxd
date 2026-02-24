@@ -8,6 +8,7 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
@@ -170,9 +171,16 @@ export default function HomeScreen() {
                   }
                 >
                   <View style={styles.leagueIconCircle}>
-                    <Text style={styles.leagueIconText}>
-                      {league.name.charAt(0).toUpperCase()}
-                    </Text>
+                    {league.profile_photo_url ? (
+                      <Image
+                        source={{ uri: league.profile_photo_url }}
+                        style={styles.leagueIconImage}
+                      />
+                    ) : (
+                      <Text style={styles.leagueIconText}>
+                        {league.name.charAt(0).toUpperCase()}
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.cardContent}>
                     <Text style={styles.leagueName} numberOfLines={2}>
@@ -354,6 +362,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderLight,
   },
   leagueIconText: { color: Colors.textPrimary, fontSize: 22, fontWeight: "900" },
+  leagueIconImage: { width: "100%", height: "100%", borderRadius: 25 },
   cardContent: { alignItems: "center", width: "100%" },
   leagueName: {
     color: Colors.textPrimary,

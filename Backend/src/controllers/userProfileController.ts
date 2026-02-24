@@ -39,6 +39,7 @@ export const getMe = async (req: Request, res: Response) => {
                 name: true,
                 invite_code: true,
                 admin_id: true,
+                profile_photo_url: true,
               },
             },
           },
@@ -55,6 +56,7 @@ export const getMe = async (req: Request, res: Response) => {
       name: m.leagues.name,
       invite_code: m.leagues.invite_code,
       admin_id: m.leagues.admin_id,
+      profile_photo_url: m.leagues.profile_photo_url ?? null,
       role: m.role,
     }));
 
@@ -389,6 +391,7 @@ export const getGlobalProfile = async (req: Request, res: Response) => {
         showcase_items: true,
         plan_type: true,
         created_at: true,
+        notifications_enabled: true,
       },
     });
 

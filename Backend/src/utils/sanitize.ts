@@ -32,6 +32,8 @@ export function sanitizeUser(user: Partial<users> | null | undefined) {
     avatar_frame: user.avatar_frame ?? undefined,
     plan_type: user.plan_type ?? undefined,
     showcase_items: (user as any).showcase_items ?? undefined,
+    notifications_enabled: (user as any).notifications_enabled ?? true,
+    notificationsEnabled: (user as any).notifications_enabled ?? true,
   } as any;
 }
 

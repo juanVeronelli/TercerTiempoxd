@@ -131,12 +131,18 @@ export const joinLeague = async (req: Request, res: Response) => {
 
 export const updateLeague = async (req: Request, res: Response) => {
   const id = req.params.id as string;
-  const { name, description, custom_medal_names } = req.body;
+  const { name, description, custom_medal_names, profile_photo_url } = req.body;
   try {
-    const data: { name?: string; description?: string; custom_medal_names?: Record<string, string> } = {};
+    const data: {
+      name?: string;
+      description?: string;
+      custom_medal_names?: Record<string, string>;
+      profile_photo_url?: string | null;
+    } = {};
     if (name !== undefined) data.name = name;
     if (description !== undefined) data.description = description;
     if (custom_medal_names !== undefined) data.custom_medal_names = custom_medal_names;
+    if (profile_photo_url !== undefined) data.profile_photo_url = profile_photo_url || null;
     const updated = await prisma.leagues.update({
       where: { id },
       data,
@@ -144,6 +150,39 @@ export const updateLeague = async (req: Request, res: Response) => {
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: "Error updating" });
+  }
+};
+
+export const uploadLeaguePhoto = async (req: Request, res: Response) => {
+  const leagueId = req.params.id as string;
+  const userId = (req as any).user?.userId;
+  try {
+    if (!req.file?.path) {
+      return res.status(400).json({ error: "No se subió ninguna imagen" });
+    }
+    const member = await prisma.league_members.findUnique({
+      where: {
+        league_id_user_id: { league_id: leagueId, user_id: userId },
+      },
+      select: { role: true },
+    });
+    const league = await prisma.leagues.findUnique({
+      where: { id: leagueId },
+      select: { admin_id: true },
+    });
+    const isOwner = league?.admin_id === userId;
+    const isAdmin = member?.role === "ADMIN" || member?.role === "OWNER";
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: "Sin permiso para editar esta liga" });
+    }
+    const updated = await prisma.leagues.update({
+      where: { id: leagueId },
+      data: { profile_photo_url: req.file.path },
+    });
+    res.json({ message: "Foto actualizada", league: updated });
+  } catch (e) {
+    console.error("Error upload league photo:", e);
+    res.status(500).json({ error: "Error al subir la foto" });
   }
 };
 
@@ -861,16 +900,122 @@ export const getAdvancedStats = async (req: Request, res: Response) => {
       },
     });
 
+    // 2. Duelos de la liga: partidos de la liga + duelos donde el usuario es challenger o rival
+    const leagueMatchIds = await prisma.matches.findMany({
+      where: { league_id: leagueId },
+      select: { id: true },
+    });
+    const matchIds = leagueMatchIds.map((m) => m.id);
+
+    const duelsList =
+      matchIds.length === 0
+        ? []
+        : await prisma.duels.findMany({
+            where: {
+              match_id: { in: matchIds },
+              OR: [{ challenger_id: userId }, { rival_id: userId }],
+            },
+            include: {
+              challenger: {
+                select: {
+                  id: true,
+                  full_name: true,
+                  username: true,
+                  profile_photo_url: true,
+                },
+              },
+              rival: {
+                select: {
+                  id: true,
+                  full_name: true,
+                  username: true,
+                  profile_photo_url: true,
+                },
+              },
+            },
+          });
+
+    // --- DUELOS: siempre se calculan desde duelsList (aunque no tengas partidos) ---
+    const duelByOpponent = new Map<
+      string,
+      {
+        userId: string;
+        name: string;
+        photo: string | null;
+        duelsPlayed: number;
+        wins: number;
+        losses: number;
+      }
+    >();
+
+    duelsList.forEach((d) => {
+      const iAmChallenger = d.challenger_id === userId;
+      const opponent = iAmChallenger ? d.rival : d.challenger;
+      const opponentId = opponent.id;
+      const iWon = d.winner_id === userId;
+
+      const current = duelByOpponent.get(opponentId) || {
+        userId: opponentId,
+        name: opponent.full_name || opponent.username,
+        photo: opponent.profile_photo_url,
+        duelsPlayed: 0,
+        wins: 0,
+        losses: 0,
+      };
+      current.duelsPlayed += 1;
+      if (d.winner_id) {
+        if (iWon) current.wins += 1;
+        else current.losses += 1;
+      }
+      duelByOpponent.set(opponentId, current);
+    });
+
+    const duelStatsList = Array.from(duelByOpponent.values()).filter(
+      (s) => s.duelsPlayed >= 1,
+    );
+    const byDuelWinsDesc = [...duelStatsList].sort(
+      (a, b) => b.wins - a.wins || b.duelsPlayed - a.duelsPlayed,
+    );
+    const byDuelLossesDesc = [...duelStatsList].sort(
+      (a, b) => b.losses - a.losses || b.duelsPlayed - a.duelsPlayed,
+    );
+
+    const duelVictim = byDuelWinsDesc[0]
+      ? {
+          ...byDuelWinsDesc[0],
+          winRate: Math.round(
+            (byDuelWinsDesc[0].wins / byDuelWinsDesc[0].duelsPlayed) * 100,
+          ),
+        }
+      : null;
+    let duelNemesis: any = null;
+    if (byDuelLossesDesc.length > 0) {
+      const rawCandidate =
+        byDuelLossesDesc.find((d) => d.userId !== duelVictim?.userId) ??
+        byDuelLossesDesc[0];
+      if (rawCandidate && rawCandidate.losses > 0) {
+        duelNemesis = {
+          ...rawCandidate,
+          // winRate = mi % de victorias; en el front 100 - winRate = «Él te gana X%»
+          winRate: Math.round(
+            (rawCandidate.wins / rawCandidate.duelsPlayed) * 100,
+          ),
+        };
+      }
+    }
+
     if (!matches || matches.length === 0) {
       return res.json({
         bestPartner: null,
         worstPartner: null,
         biggestRival: null,
         easyTarget: null,
+        duelVictim,
+        duelNemesis,
       });
     }
 
-    // Mapas para acumular estadísticas
+    // Mapas para acumular estadísticas (partidos en cancha)
     // Key: userId del compañero/rival
     const partners = new Map();
     const rivals = new Map();
@@ -900,8 +1045,9 @@ export const getAdvancedStats = async (req: Request, res: Response) => {
         const statsMap = p.team === myTeam ? partners : rivals;
 
         const current = statsMap.get(p.user_id) || {
-          wins: 0, // Victorias del usuario logueado
-          losses: 0, // Derrotas del usuario logueado
+          userId: p.user_id,
+          wins: 0,
+          losses: 0,
           matches: 0,
           name: p.users.full_name || p.users.username,
           photo: p.users.profile_photo_url,
@@ -932,40 +1078,36 @@ export const getAdvancedStats = async (req: Request, res: Response) => {
     const partnersList = formatStatsList(partners);
     const rivalsList = formatStatsList(rivals);
 
-    // --- LÓGICA DE SELECCIÓN ---
+    // --- SOCIOS: por cantidad de partidos ganados/perdidos juntos (no por %) ---
+    // Mejor socio = compañero con el que más veces jugaste y ganaste (más victorias juntos)
+    const byPartnerWinsDesc = [...partnersList].sort(
+      (a, b) => b.wins - a.wins || b.matches - a.matches,
+    );
+    // Peor socio = compañero con el que más veces jugaste y perdiste (más derrotas juntos)
+    const byPartnerLossesDesc = [...partnersList].sort(
+      (a, b) => b.losses - a.losses || b.matches - a.matches,
+    );
 
-    // 1. MEJOR SOCIO: Con el que tengo más % de victoria (Mínimo 1 partido)
-    // Desempate por cantidad de partidos jugados juntos
-    const bestPartner =
-      partnersList.length > 0
-        ? partnersList.sort(
-            (a, b) => b.winRate - a.winRate || b.matches - a.matches,
-          )[0]
-        : null;
-
-    // 2. QUÍMICA NEGATIVA: Con el que tengo menos % de victoria
+    const bestPartner = byPartnerWinsDesc[0] ?? null;
     const worstPartner =
-      partnersList.length > 0
-        ? partnersList.sort(
-            (a, b) => a.winRate - b.winRate || b.matches - a.matches,
-          )[0]
+      byPartnerLossesDesc[0] && byPartnerLossesDesc[0].losses > 0
+        ? byPartnerLossesDesc[0]
         : null;
 
-    // 3. TU VÍCTIMA (Hijo): El rival al que más veces le has GANADO (winRate alto para ti)
-    const easyTarget =
-      rivalsList.length > 0
-        ? rivalsList.sort(
-            (a, b) => b.winRate - a.winRate || b.matches - a.matches,
-          )[0]
-        : null;
+    // --- RIVALES EN CANCHA: por cantidad de partidos ganados/perdidos contra ellos ---
+    // Tu víctima = rival al que más veces le ganaste (más victorias tuyas cuando está enfrente)
+    const byRivalWinsDesc = [...rivalsList].sort(
+      (a, b) => b.wins - a.wins || b.matches - a.matches,
+    );
+    // Tu rival directo = rival que más veces te ganó (más derrotas tuyas contra él)
+    const byRivalLossesDesc = [...rivalsList].sort(
+      (a, b) => b.losses - a.losses || b.matches - a.matches,
+    );
 
-    // 4. TU RIVAL DIRECTO (Padre/Verdugo): El rival contra el que más has PERDIDO (winRate bajo para ti)
-    // Si Juan te ganó 2 y tú 0, tu winRate contra él es 0%. Es tu mayor verdugo.
+    const easyTarget = byRivalWinsDesc[0] ?? null;
     const biggestRival =
-      rivalsList.length > 0
-        ? rivalsList.sort(
-            (a, b) => a.winRate - b.winRate || b.matches - a.matches,
-          )[0]
+      byRivalLossesDesc[0] && byRivalLossesDesc[0].losses > 0
+        ? byRivalLossesDesc[0]
         : null;
 
     res.json({
@@ -977,6 +1119,8 @@ export const getAdvancedStats = async (req: Request, res: Response) => {
       biggestRival: biggestRival
         ? { ...biggestRival, winRateAgainst: biggestRival.winRate }
         : null,
+      duelVictim: duelVictim ?? null,
+      duelNemesis: duelNemesis ?? null,
     });
   } catch (error) {
     console.error("Error en advanced stats:", error);

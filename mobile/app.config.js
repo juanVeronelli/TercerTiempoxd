@@ -1,4 +1,7 @@
 // Carga .env para que EXPO_PUBLIC_* esté disponible (obligatorio prefijo para Expo)
+// EAS Build desde GitHub: .env no se sube. Configura las mismas variables en expo.dev → Project → Secrets
+// (o en eas.json → build.[profile].env). Necesarias: EXPO_PUBLIC_API_URL, EXPO_PUBLIC_SENTRY_DSN,
+// EXPO_PUBLIC_REVENUECAT_API_KEY; opcionales: EXPO_PUBLIC_ADMOB_*.
 require("dotenv").config();
 
 const appJson = require("./app.json");
@@ -47,6 +50,7 @@ module.exports = {
     plugins: [
       "expo-router",
       "expo-secure-store",
+      "expo-notifications",
       ["@sentry/react-native/expo", { url: "https://sentry.io/", project: "tercertiempo-app", organization: "tercertiempo" }],
       [
         "react-native-google-mobile-ads",

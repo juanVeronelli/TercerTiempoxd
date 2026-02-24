@@ -171,6 +171,7 @@ const PredictionCard = ({
   ratingInputs,
   setRatingInputs,
   onSubmit,
+  showAlert,
 }: {
   question: Question;
   picksCount: number;
@@ -179,6 +180,7 @@ const PredictionCard = ({
   ratingInputs: Record<string, string>;
   setRatingInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onSubmit: (questionId: string, optionId: string, picksCount: number, isSelected: boolean) => void;
+  showAlert: (title: string, message: string) => void;
 }) => {
   const isSelected = question.user_option_id != null;
   const canPick = isSelected || picksCount < MAX_PICKS;
@@ -376,8 +378,14 @@ export default function PredictionsScreen() {
           title="Zona de Predicciones"
           showBack
         />
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>Falta el ID de la liga.</Text>
+        <View style={styles.emptyStateWrapper}>
+          <View style={styles.emptyState}>
+            <View style={styles.emptyStateIconWrap}>
+              <Ionicons name="warning-outline" size={40} color={THEME.gold} />
+            </View>
+            <Text style={styles.emptyStateTitle}>Falta el ID de la liga</Text>
+            <Text style={styles.emptyText}>Entrá desde una liga para ver las predicciones.</Text>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -469,15 +477,20 @@ export default function PredictionsScreen() {
           {!showComingSoon && (
             <>
               {groups.length === 0 ? (
-                <View style={[styles.cardBase, styles.emptyCard]}>
+                <View style={styles.emptyStateWrapper}>
                   <View style={styles.emptyState}>
-                    <MaterialCommunityIcons
-                      name="crystal-ball"
-                      size={48}
-                      color={THEME.textSecondary}
-                    />
+                    <View style={styles.emptyStateIconWrap}>
+                      <MaterialCommunityIcons
+                        name="crystal-ball"
+                        size={48}
+                        color={THEME.gold}
+                      />
+                    </View>
+                    <Text style={styles.emptyStateTitle}>
+                      Sin predicciones por ahora
+                    </Text>
                     <Text style={styles.emptyText}>
-                      No hay predicciones activas para el próximo partido.
+                      Cuando haya un partido próximo con Prode, vas a poder participar acá y sumar puntos.
                     </Text>
                   </View>
                 </View>
@@ -529,6 +542,7 @@ export default function PredictionsScreen() {
                           ratingInputs={ratingInputs}
                           setRatingInputs={setRatingInputs}
                           onSubmit={submitPrediction}
+                          showAlert={showAlert}
                         />
                       ))}
                     </View>
@@ -646,19 +660,39 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     paddingHorizontal: 12,
   },
-  emptyCard: {
-    paddingVertical: 32,
+  emptyStateWrapper: {
+    flex: 1,
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    alignItems: "center",
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 24,
-    gap: 14,
+  },
+  emptyStateIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: THEME.goldLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  emptyStateTitle: {
+    color: THEME.textPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 8,
+    textAlign: "center",
   },
   emptyText: {
     color: THEME.textSecondary,
     fontSize: 14,
     textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 280,
   },
   groupMetaCard: {
     flexDirection: "row",

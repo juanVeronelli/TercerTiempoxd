@@ -221,14 +221,14 @@ export default function PaywallScreen() {
 
         <View style={styles.legal}>
           <TouchableOpacity
-            onPress={() => Linking.openURL("https://tercertiempo.com/terminos")}
+            onPress={() => Linking.openURL("http://tercertiempoxd.com/terminos")}
           >
             <Text style={styles.legalLink}>Términos</Text>
           </TouchableOpacity>
           <Text style={styles.legalSep}> · </Text>
           <TouchableOpacity
             onPress={() =>
-              Linking.openURL("https://tercertiempo.com/privacidad")
+              Linking.openURL("https://tercertiempoxd.com/privacidad")
             }
           >
             <Text style={styles.legalLink}>Privacidad</Text>

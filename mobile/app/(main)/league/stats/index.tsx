@@ -19,11 +19,9 @@ import { useCustomAlert } from "../../../../src/context/AlertContext";
 import { NotificationBell } from "../../../../src/components/NotificationBell";
 import { ScreenHeader } from "../../../../src/components/ui/ScreenHeader";
 import { EmptyState } from "../../../../src/components/ui/EmptyState";
-import { UserAvatar } from "../../../../src/components/ui/UserAvatar";
 import { Skeleton } from "../../../../src/components/ui/Skeleton";
 import { NativeAdCardWrapper } from "../../../../src/components/ads/NativeAdCardWrapper";
 import apiClient from "../../../../src/api/apiClient";
-import { formatPositionForDisplay } from "../../../../src/constants/Positions";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
@@ -57,147 +55,94 @@ const STATS_COACHMARK_STEPS = [
   },
 ];
 
-// --- UTILS (posición en español) ---
+// --- Gráfico de tendencia PRO (diseño limpio) ---
+const CHART_PADDING = { left: 24, right: 12, top: 8, bottom: 20 };
+const TREND_H = 120;
+const TREND_W = SCREEN_WIDTH - 72;
 
-// --- COMPONENTE: NUEVA CARTA PRO (Diseño Limpio y Orgánico) ---
-const ProPlayerCard = ({
-  user,
-  averages,
-  rating,
-}: {
-  user: any;
-  averages: any;
-  rating: string;
-}) => {
-  // Convertimos escala 0-10 a 0-99
-  const getStat = (val: number) =>
-    Math.min(99, Math.round((Number(val) || 5) * 10));
-  const overall = Math.round(Number(rating) * 10) || 75;
-  const position = formatPositionForDisplay(user?.mainPosition);
-
-  const StatBox = ({ label, value }: { label: string; value: number }) => (
-    <View style={styles.proStatBox}>
-      <Text style={styles.proStatValue}>{value}</Text>
-      <Text style={styles.proStatLabel}>{label}</Text>
-    </View>
-  );
-
-  return (
-    <View style={styles.cardWrapper}>
-      <View style={styles.proCard}>
-        {/* Cabecera con Foto y Rating (Sin marca de agua) */}
-        <View style={styles.cardHeader}>
-          <View style={styles.photoRingContainer}>
-            <UserAvatar
-              imageUrl={user?.photo}
-              name={user?.fullName || user?.username || "Jugador"}
-              size={150}
-            />
-          </View>
-          {/* Insignia superpuesta organicamente */}
-          <View style={styles.ratingInsignia}>
-            <Text style={styles.insigniaValue}>{overall}</Text>
-            <View style={styles.insigniaSeparator} />
-            <Text style={styles.insigniaPos}>{position}</Text>
-          </View>
-        </View>
-
-        {/* Nombre del Jugador */}
-        <View style={styles.nameContainer}>
-          <Text style={styles.proName} numberOfLines={1} ellipsizeMode="tail">
-            {user?.fullName?.toUpperCase() ||
-              user?.username?.toUpperCase() ||
-              "PRO PLAYER"}
-          </Text>
-        </View>
-
-        {/* Grilla de Stats Limpia */}
-        <View style={styles.proStatsGrid}>
-          <StatBox label="RIT" value={getStat(averages.pace)} />
-          <StatBox label="TIR" value={getStat(averages.attack)} />
-          <StatBox label="PAS" value={getStat(averages.technique)} />
-          <StatBox label="REG" value={getStat(averages.technique)} />
-          <StatBox label="DEF" value={getStat(averages.defense)} />
-          <StatBox label="FIS" value={getStat(averages.physical)} />
-        </View>
-      </View>
-    </View>
-  );
-};
-
-// --- GRÁFICO TENDENCIA ---
-const TrendChart = ({
+const TrendChartPro = ({
   matches,
   leagueAvg,
 }: {
   matches: any[];
   leagueAvg: number;
 }) => {
-  const h = 80;
-  const w = SCREEN_WIDTH - 80;
-  if (matches.length < 2)
-    return <Text style={styles.emptyText}>Necesitas jugar más partidos</Text>;
+  const w = TREND_W - CHART_PADDING.left - CHART_PADDING.right;
+  const h = TREND_H - CHART_PADDING.top - CHART_PADDING.bottom;
 
-  const getX = (i: number) => (i / (matches.length - 1)) * w;
-  const getY = (val: number) => h - (val / 10) * h;
+  if (matches.length < 2) {
+    return (
+      <View style={styles.trendEmpty}>
+        <Ionicons name="analytics-outline" size={28} color="#64748B" />
+        <Text style={styles.trendEmptyText}>Mínimo 2 partidos para ver evolución</Text>
+      </View>
+    );
+  }
+
+  const getX = (i: number) =>
+    CHART_PADDING.left + (i / Math.max(1, matches.length - 1)) * w;
+  const getY = (val: number) =>
+    CHART_PADDING.top + h - (Number(val) / 10) * h;
   const points = matches
     .map((m, i) => `${getX(i)},${getY(Number(m.rating))}`)
     .join(" ");
+  const areaPoints = [
+    `${CHART_PADDING.left},${CHART_PADDING.top + h}`,
+    ...matches.map((m, i) => `${getX(i)},${getY(Number(m.rating))}`),
+    `${CHART_PADDING.left + w},${CHART_PADDING.top + h}`,
+    `${CHART_PADDING.left},${CHART_PADDING.top + h}`,
+  ].join(" ");
   const leagueY = getY(leagueAvg);
 
   return (
-    <View style={styles.chartWrapper}>
-      <Svg height={h + 25} width={w}>
+    <View style={styles.trendChartOuter}>
+      <Svg width={TREND_W} height={TREND_H + 16}>
+        <Polygon points={areaPoints} fill="rgba(212, 175, 55, 0.08)" stroke="none" />
         <Line
-          x1="0"
+          x1={CHART_PADDING.left}
           y1={leagueY}
-          x2={w}
+          x2={CHART_PADDING.left + w}
           y2={leagueY}
-          stroke="#4B5563"
+          stroke="#475569"
           strokeWidth="1"
-          strokeDasharray="4"
+          strokeDasharray="5 4"
         />
-        <SvgText
-          x={0}
-          y={leagueY - 6}
-          fill="#6B7280"
-          fontSize="8"
-          fontWeight="bold"
-        >
-          LIGA ({leagueAvg})
-        </SvgText>
         <Polyline
           points={points}
           fill="none"
-          stroke={Colors.primary}
-          strokeWidth="3"
+          stroke={PRO_GOLD}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
         {matches.map((m, i) => (
-          <React.Fragment key={i}>
-            <Circle
-              cx={getX(i)}
-              cy={getY(Number(m.rating))}
-              r="4"
-              fill={Colors.primary}
-            />
-            <SvgText
-              x={getX(i)}
-              y={getY(Number(m.rating)) - 12}
-              fill="white"
-              fontSize="10"
-              fontWeight="900"
-              textAnchor="middle"
-            >
-              {m.rating}
-            </SvgText>
-          </React.Fragment>
+          <Circle
+            key={i}
+            cx={getX(i)}
+            cy={getY(Number(m.rating))}
+            r="4"
+            fill="#0F172A"
+            stroke={PRO_GOLD}
+            strokeWidth="1.5"
+          />
         ))}
       </Svg>
+      <View style={styles.trendLegend}>
+        <View style={styles.trendLegendItem}>
+          <View style={[styles.trendLegendDot, { backgroundColor: PRO_GOLD }]} />
+          <Text style={styles.trendLegendText}>Tu nota</Text>
+        </View>
+        <View style={styles.trendLegendItem}>
+          <View style={[styles.trendLegendLine]} />
+          <Text style={styles.trendLegendText}>Liga {leagueAvg.toFixed(1)}</Text>
+        </View>
+      </View>
     </View>
   );
 };
 
-// --- GRÁFICO RADAR ---
+// --- Radar PRO (spider limpio) ---
+const RADAR_SIZE = 160;
 const RadarChart = ({
   userData,
   leagueData,
@@ -205,9 +150,8 @@ const RadarChart = ({
   userData: any;
   leagueData: any;
 }) => {
-  const size = 180;
-  const center = size / 2;
-  const radius = size * 0.35;
+  const center = RADAR_SIZE / 2;
+  const radius = RADAR_SIZE * 0.36;
   const labels = ["RIT", "DEF", "TEC", "FIS", "ATA"];
   const keys = ["pace", "defense", "technique", "physical", "attack"];
   const getPoints = (data: any) =>
@@ -220,16 +164,16 @@ const RadarChart = ({
       .join(" ");
 
   return (
-    <View style={styles.radarContainer}>
-      <Svg height={size} width={size}>
-        {[0.2, 0.4, 0.6, 0.8, 1].map((r, i) => (
+    <View style={styles.radarWrap}>
+      <Svg height={RADAR_SIZE} width={RADAR_SIZE}>
+        {[0.25, 0.5, 0.75, 1].map((r, i) => (
           <Circle
             key={i}
             cx={center}
             cy={center}
             r={radius * r}
             fill="none"
-            stroke="#334155"
+            stroke="#2D3A4A"
             strokeWidth="1"
           />
         ))}
@@ -242,15 +186,15 @@ const RadarChart = ({
                 y1={center}
                 x2={center + radius * Math.cos(angle)}
                 y2={center + radius * Math.sin(angle)}
-                stroke="#334155"
+                stroke="#2D3A4A"
                 strokeWidth="1"
               />
               <SvgText
-                x={center + (radius + 20) * Math.cos(angle)}
-                y={center + (radius + 15) * Math.sin(angle)}
-                fill="#9CA3AF"
-                fontSize="9"
-                fontWeight="900"
+                x={center + (radius + 18) * Math.cos(angle)}
+                y={center + (radius + 12) * Math.sin(angle)}
+                fill="#64748B"
+                fontSize="10"
+                fontWeight="700"
                 textAnchor="middle"
               >
                 {labels[i]}
@@ -260,28 +204,26 @@ const RadarChart = ({
         })}
         <Polygon
           points={getPoints(leagueData)}
-          fill="rgba(148, 163, 184, 0.1)"
+          fill="rgba(100, 116, 139, 0.12)"
           stroke="#64748B"
           strokeWidth="1"
-          strokeDasharray="3"
+          strokeDasharray="4 3"
         />
         <Polygon
           points={getPoints(userData)}
-          fill={`${Colors.primary}40`}
-          stroke={Colors.primary}
+          fill="rgba(212, 175, 55, 0.2)"
+          stroke={PRO_GOLD}
           strokeWidth="2"
         />
       </Svg>
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
-          <View
-            style={[styles.legendDot, { backgroundColor: Colors.primary }]}
-          />
-          <Text style={styles.legendText}>TÚ</Text>
+          <View style={[styles.legendDot, { backgroundColor: PRO_GOLD }]} />
+          <Text style={styles.legendText}>Tú</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: "#64748B" }]} />
-          <Text style={styles.legendText}>LIGA</Text>
+          <Text style={styles.legendText}>Liga</Text>
         </View>
       </View>
     </View>
@@ -658,70 +600,128 @@ export default function MyStatsScreen() {
           isPro={isPro}
         />
 
-        {/* --- SECCIÓN PRO --- */}
-        <View style={styles.sectionHeaderBox}>
-          <Text style={[styles.sectionHeader, { color: PRO_GOLD }]}>
-            ANÁLISIS PRO
-          </Text>
-        </View>
+        {/* --- Widget Análisis PRO (diseño unificado) --- */}
+        <View style={styles.proWidget}>
+          <View style={styles.proWidgetHeader}>
+            <View style={styles.proBadge}>
+              <Text style={styles.proBadgeText}>PRO</Text>
+            </View>
+            <Text style={styles.proWidgetTitle}>Análisis avanzado</Text>
+          </View>
 
-        {isPro ? (
-          <>
-            {/* GRÁFICOS */}
-            <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>TENDENCIA DE RATING</Text>
-              <TrendChart
-                matches={stats?.recentMatches || []}
-                leagueAvg={Number(leagueAvg.rating)}
-              />
-            </View>
-            <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>PERFIL TÉCNICO VS LIGA</Text>
-              <RadarChart userData={averages} leagueData={leagueAvg} />
-              <View style={styles.statGrid}>
-                {["pace", "defense", "technique", "physical", "attack"].map(
-                  (key, i) => (
-                    <View key={i} style={styles.statLabelItem}>
-                      <Text style={styles.statLabelText}>
-                        {["RIT", "DEF", "TEC", "FIS", "ATA"][i]}:{" "}
-                        <Text style={styles.statValueText}>
-                          {averages[key as keyof typeof averages]}
-                        </Text>
-                      </Text>
-                    </View>
-                  ),
-                )}
+          {isPro ? (
+            <View style={styles.proWidgetBody}>
+              <View style={styles.proMetrics}>
+                <View style={styles.proMetricCol}>
+                  <Text style={styles.proMetricValue}>{stats?.historicalAvg ?? "—"}</Text>
+                  <Text style={styles.proMetricLabel}>Tu promedio</Text>
+                </View>
+                <View style={styles.proMetricDivider} />
+                <View style={styles.proMetricCol}>
+                  <Text style={[styles.proMetricValue, styles.proMetricHighlight]}>
+                    {Number(leagueAvg.rating ?? 0).toFixed(1)}
+                  </Text>
+                  <Text style={styles.proMetricLabel}>Liga</Text>
+                </View>
+                <View style={styles.proMetricDivider} />
+                <View style={styles.proMetricCol}>
+                  <Text style={styles.proMetricValue}>{matches.length}</Text>
+                  <Text style={styles.proMetricLabel}>Partidos</Text>
+                </View>
               </View>
-            </View>
-          </>
-        ) : (
-          <TouchableOpacity
-            style={styles.proUnlockCard}
-            activeOpacity={0.9}
-            onPress={() =>
-              showAlert(
-                "Plan PRO",
-                "Mejora tu plan para desbloquear estadísticas PRO, comparativas de liga y evolución histórica.",
-              )
-            }
-          >
-            <View style={styles.proBadgeIcon}>
-              <MaterialCommunityIcons
-                name="shield-star"
-                size={30}
-                color={PRO_GOLD}
+
+              <View style={styles.proDivider} />
+
+              <Text style={styles.proSectionLabel}>Evolución</Text>
+              <TrendChartPro
+                matches={[...(stats?.recentMatches ?? [])].reverse().slice(0, 10)}
+                leagueAvg={Number(leagueAvg.rating ?? 6)}
               />
+
+              <View style={styles.proDivider} />
+
+              <Text style={styles.proSectionLabel}>Perfil técnico</Text>
+              <RadarChart userData={averages} leagueData={leagueAvg} />
+              <View style={styles.proStatStrip}>
+                {[
+                  { key: "pace", label: "RIT" },
+                  { key: "defense", label: "DEF" },
+                  { key: "technique", label: "TEC" },
+                  { key: "physical", label: "FIS" },
+                  { key: "attack", label: "ATA" },
+                ].map(({ key, label }, i) => (
+                  <Text key={i} style={styles.proStatStripItem}>
+                    <Text style={styles.proStatStripLabel}>{label} </Text>
+                    <Text style={styles.proStatStripValue}>
+                      {Number(averages[key as keyof typeof averages]).toFixed(1)}
+                    </Text>
+                  </Text>
+                ))}
+              </View>
+
+              {(() => {
+                const dims = [
+                  { key: "pace", label: "Ritmo" },
+                  { key: "defense", label: "Defensa" },
+                  { key: "technique", label: "Técnica" },
+                  { key: "physical", label: "Físico" },
+                  { key: "attack", label: "Ataque" },
+                ] as const;
+                const above = dims.filter(
+                  (d) => Number(averages[d.key]) > Number(leagueAvg[d.key])
+                );
+                const below = dims.filter(
+                  (d) => Number(averages[d.key]) < Number(leagueAvg[d.key])
+                );
+                if (above.length === 0 && below.length === 0) return null;
+                return (
+                  <>
+                    <View style={styles.proDivider} />
+                    <Text style={styles.proSectionLabel}>Resumen vs liga</Text>
+                    <View style={styles.proInsightsStrip}>
+                      {above.length > 0 && (
+                        <View style={styles.proInsightChip}>
+                          <Ionicons name="arrow-up" size={12} color="#22C55E" />
+                          <Text style={styles.proInsightChipText}>
+                            {above.map((d) => d.label).join(", ")}
+                          </Text>
+                        </View>
+                      )}
+                      {below.length > 0 && (
+                        <View style={[styles.proInsightChip, styles.proInsightChipAlt]}>
+                          <Ionicons name="arrow-down" size={12} color="#F59E0B" />
+                          <Text style={styles.proInsightChipText}>
+                            {below.map((d) => d.label).join(", ")}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </>
+                );
+              })()}
             </View>
-            <View style={styles.proTextContainer}>
-              <Text style={styles.proUnlockTitle}>ESTADÍSTICAS PRO</Text>
-              <Text style={styles.proUnlockDesc}>
-                Desbloquea estadísticas PRO, comparativas de liga y evolución
-                histórica.
-              </Text>
-            </View>
-            <Ionicons name="lock-closed" size={18} color={PRO_GOLD} />
-          </TouchableOpacity>
-        )}
+          ) : (
+            <TouchableOpacity
+              style={styles.proUnlock}
+              activeOpacity={0.9}
+              onPress={() =>
+                showAlert(
+                  "Plan PRO",
+                  "Desbloquea evolución, perfil técnico vs liga e insights.",
+                )
+              }
+            >
+              <MaterialCommunityIcons name="chart-box-outline" size={36} color={PRO_GOLD} />
+              <View style={styles.proUnlockText}>
+                <Text style={styles.proUnlockTitle}>Análisis avanzado</Text>
+                <Text style={styles.proUnlockDesc}>
+                  Evolución, perfil técnico e insights vs tu liga
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#64748B" />
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={{ height: 40 }} />
       </ScrollView>
 
@@ -948,6 +948,192 @@ const styles = StyleSheet.create({
   },
   statLabelText: { color: "#9CA3AF", fontSize: 9, fontWeight: "800" },
   statValueText: { color: Colors.primary, fontWeight: "900" },
+
+  // --- Widget PRO (diseño unificado) ---
+  proWidget: {
+    marginTop: 16,
+    marginBottom: 32,
+    marginHorizontal: 4,
+    backgroundColor: "#131B28",
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#1E293B",
+  },
+  proWidgetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E293B",
+  },
+  proBadge: {
+    backgroundColor: PRO_GOLD,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  proBadgeText: {
+    color: "#0F172A",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  proWidgetTitle: {
+    color: "#F1F5F9",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  proWidgetBody: {
+    padding: 16,
+  },
+  proMetrics: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingVertical: 12,
+  },
+  proMetricValue: {
+    color: "#E2E8F0",
+    fontSize: 22,
+    fontWeight: "800",
+  },
+  proMetricLabel: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  proMetricCol: { alignItems: "center", flex: 1 },
+  proMetricHighlight: { color: PRO_GOLD },
+  proMetricDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "#1E293B",
+    borderRadius: 1,
+  },
+  proDivider: {
+    height: 1,
+    backgroundColor: "#1E293B",
+    marginVertical: 16,
+  },
+  proSectionLabel: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  trendChartOuter: {
+    width: "100%",
+    alignItems: "center",
+  },
+  trendLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+    marginTop: 10,
+  },
+  trendLegendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  trendLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  trendLegendLine: {
+    width: 14,
+    height: 2,
+    backgroundColor: "#475569",
+    borderRadius: 1,
+  },
+  trendLegendText: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  trendEmpty: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
+  trendEmptyText: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "500",
+    marginTop: 8,
+  },
+  radarWrap: {
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  legendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+    marginTop: 10,
+  },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  proStatStrip: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 12,
+  },
+  proStatStripItem: { fontSize: 12 },
+  proStatStripLabel: { color: "#64748B", fontWeight: "600" },
+  proStatStripValue: { color: PRO_GOLD, fontWeight: "800" },
+  proInsightsStrip: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  proInsightChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(34, 197, 94, 0.12)",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  proInsightChipAlt: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+  },
+  proInsightChipText: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  proUnlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 20,
+    gap: 14,
+  },
+  proUnlockText: { flex: 1 },
+  proUnlockTitle: {
+    color: "#F1F5F9",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  proUnlockDesc: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "500",
+  },
   viewCardBtn: {
     backgroundColor: PRO_GOLD,
     flexDirection: "row",
@@ -968,28 +1154,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 0.5,
   },
-  proUnlockCard: {
-    backgroundColor: "#111827",
-    borderRadius: 15,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: PRO_GOLD,
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  proBadgeIcon: {
-    width: 50,
-    height: 50,
-    backgroundColor: "rgba(212, 175, 55, 0.1)",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
-  },
-  proTextContainer: { flex: 1 },
-  proUnlockTitle: { color: PRO_GOLD, fontSize: 13, fontWeight: "900" },
-  proUnlockDesc: { color: "#9CA3AF", fontSize: 10, lineHeight: 14 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.9)",
@@ -1050,100 +1214,4 @@ const styles = StyleSheet.create({
   textYellow: { color: "#F59E0B" },
   bgRed: { backgroundColor: "rgba(239, 68, 68, 0.15)" },
   textRed: { color: "#EF4444" },
-
-  // --- NUEVOS ESTILOS CARTA PRO (ORGÁNICA & LIMPIA) ---
-  cardWrapper: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 15,
-    elevation: 10,
-  },
-  proCard: {
-    width: 280,
-    backgroundColor: "#1A2233", // Fondo ligeramente más claro que el modal
-    borderRadius: 24,
-    overflow: "hidden",
-    // SIN BORDER WIDTH/COLOR para que se sienta orgánica
-    position: "relative",
-    paddingBottom: 25,
-    alignItems: "center",
-  },
-  cardHeader: {
-    alignItems: "center",
-    marginTop: 35,
-    position: "relative",
-    marginBottom: 10,
-  },
-  photoRingContainer: {
-    padding: 4,
-    backgroundColor: "#1A2233",
-    borderRadius: 70,
-    borderWidth: 2,
-    borderColor: PRO_GOLD,
-    shadowColor: PRO_GOLD,
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  proPhoto: { width: 120, height: 120, borderRadius: 60 },
-  ratingInsignia: {
-    position: "absolute",
-    bottom: -14,
-    backgroundColor: PRO_GOLD,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    elevation: 3,
-  },
-  insigniaValue: { color: "#1C1C1C", fontSize: 22, fontWeight: "900" },
-  insigniaSeparator: {
-    width: 1,
-    height: 16,
-    backgroundColor: "#1C1C1C",
-    opacity: 0.3,
-  },
-  insigniaPos: { color: "#1C1C1C", fontSize: 14, fontWeight: "bold" },
-  nameContainer: {
-    alignItems: "center",
-    marginTop: 20,
-    marginBottom: 15,
-    paddingHorizontal: 20,
-  },
-  proName: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: 0.5,
-    textAlign: "center",
-  },
-  proStatsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 20,
-    justifyContent: "space-between",
-    width: "100%",
-    gap: 8,
-  },
-  proStatBox: {
-    width: "31%",
-    backgroundColor: "#111827", // Fondo más oscuro para contraste interno
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-    // Sin borde duro
-  },
-  proStatValue: { color: PRO_GOLD, fontSize: 20, fontWeight: "900" },
-  proStatLabel: {
-    color: "#9CA3AF",
-    fontSize: 10,
-    fontWeight: "bold",
-    marginTop: 2,
-    letterSpacing: 0.5,
-  },
 });

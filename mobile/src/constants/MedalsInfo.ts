@@ -27,7 +27,7 @@ export const MEDALS_INFO: MedalItem[] = [
     id: "oracle",
     name: "Oracle",
     icon: "crystal-ball",
-    color: "#D4AF37",
+    color: "#22D3EE",
     description: "Mejor predictor del partido en el Prode (predicciones pre-partido).",
     howToEarn: "Acertaste más preguntas del Prode que el resto en ese partido.",
   },
@@ -44,8 +44,20 @@ export const MEDALS_INFO: MedalItem[] = [
     name: "Fantasma",
     icon: "ghost",
     color: "#A78BFA",
-    description: "Se lo asigna a quien no se presentó o no cumplió con el partido.",
-    howToEarn: "Te marcaron como ausente o no confirmado en el partido.",
+    description:
+      "Se asigna al jugador cuya autoevaluación tuvo mayor discrepancia con la valoración que le dieron los demás.",
+    howToEarn:
+      "Obtuviste la mayor diferencia entre el rating que te pusiste a vos mismo y el promedio de votos que recibiste.",
+  },
+  {
+    id: "duelo",
+    name: "Duelo de la fecha",
+    icon: "sword-cross",
+    color: "#10B981",
+    description:
+      "Se le asigna al ganador del duelo de la fecha (mano a mano destacado del partido).",
+    howToEarn:
+      "Ganaste el duelo elegido para este partido contra otro jugador.",
   },
   {
     id: "segundo",

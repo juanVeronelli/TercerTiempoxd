@@ -206,6 +206,9 @@ export default function ProfileScreen() {
         planType: rawUser?.plan_type || rawUser?.planType || "FREE",
       };
       setUser(formattedUser);
+      setNotificationsEnabled(
+        rawUser?.notifications_enabled ?? rawUser?.notificationsEnabled ?? true,
+      );
       setCareerStats(data.careerStats);
       setTrophyCase(data.trophyCase);
       setRecentMatches(data.recentMatches ?? []);
@@ -286,6 +289,22 @@ export default function ProfileScreen() {
     setSettingsVisible(false);
     setTimeout(() => modalSetter(true), 500);
   }, []);
+
+  const handleNotificationsChange = useCallback(
+    async (value: boolean) => {
+      setNotificationsEnabled(value);
+      try {
+        await apiClient.put("/auth/update-profile", { notificationsEnabled: value });
+      } catch {
+        setNotificationsEnabled(!value);
+        showAlert(
+          "Error",
+          "No se pudo guardar la preferencia de notificaciones. Revisa tu conexión.",
+        );
+      }
+    },
+    [showAlert],
+  );
 
   const saveCustomization = useCallback(
     async (field: "banner" | "frame" | "accent" | "showcase", value: any) => {
@@ -911,7 +930,7 @@ export default function ProfileScreen() {
         isPro={isPro}
         activeAccent={activeAccent}
         notificationsEnabled={notificationsEnabled}
-        onNotificationsChange={setNotificationsEnabled}
+        onNotificationsChange={handleNotificationsChange}
         onOpenBanner={() => openSubModal(setBannerModalVisible)}
         onOpenFrame={() => openSubModal(setFrameModalVisible)}
         onOpenAccent={() => openSubModal(setAccentModalVisible)}

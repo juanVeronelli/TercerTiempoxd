@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,10 @@ import {
   TextInput,
   StatusBar,
   ActivityIndicator,
+  Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from "expo-secure-store";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -24,6 +27,7 @@ import { useCurrentUser } from "../../../src/hooks/useCurrentUser";
 import { UserAvatar } from "../../../src/components/ui/UserAvatar";
 import { Skeleton } from "../../../src/components/ui/Skeleton";
 import { MEDALS_INFO } from "../../../src/constants/MedalsInfo";
+import { getApiBaseUrl } from "../../../src/api/apiClient";
 
 // Tipado de Miembro
 type Member = {
@@ -56,6 +60,8 @@ export default function LeagueSettingsScreen() {
   const [members, setMembers] = useState<Member[]>([]);
   /** Mapeo id medalla -> nombre personalizado (ej. tronco -> "Carnicero") */
   const [customMedalNames, setCustomMedalNames] = useState<Record<string, string>>({});
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Rol del usuario logueado
   const [myRole, setMyRole] = useState("MEMBER");
@@ -78,6 +84,7 @@ export default function LeagueSettingsScreen() {
       setDescription(leagueRes.data.description || "");
       setInviteCode(leagueRes.data.invite_code);
       setCustomMedalNames(leagueRes.data.custom_medal_names ?? {});
+      setProfilePhotoUrl(leagueRes.data.profile_photo_url ?? null);
 
       // Cargamos miembros y nuestro rol (inyectado por el backend)
       const mData = membersRes.data;
@@ -185,6 +192,50 @@ export default function LeagueSettingsScreen() {
     showAlert("Copiado", "Código copiado al portapapeles.");
   };
 
+  const handlePickLeaguePhoto = useCallback(async () => {
+    if (!isAdminOrOwner || !leagueId) return;
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      showAlert("Permiso denegado", "Necesitamos acceso a fotos para subir la imagen.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    setUploadingPhoto(true);
+    try {
+      const uri = asset.uri;
+      const fileName = uri.split("/").pop() ?? "league.jpg";
+      const type = "image/jpeg";
+      const formData = new FormData();
+      // @ts-expect-error - React Native FormData
+      formData.append("photo", { uri, name: fileName, type });
+      const token = await SecureStore.getItemAsync("userToken");
+      const url = `${getApiBaseUrl()}/leagues/${leagueId}/upload-photo`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: token ? `Bearer ${token}` : "" },
+        body: formData,
+      });
+      const data = (await res.json().catch(() => ({}))) as { league?: { profile_photo_url?: string }; error?: string };
+      if (res.ok && data.league?.profile_photo_url) {
+        setProfilePhotoUrl(data.league.profile_photo_url);
+        showAlert("Listo", "Foto de la liga actualizada.");
+      } else {
+        showAlert("Error", data?.error ?? "No se pudo subir la foto.");
+      }
+    } catch (e) {
+      showAlert("Error", "No se pudo subir la foto. Revisá tu conexión.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }, [leagueId, isAdminOrOwner, showAlert]);
+
   if (loading)
     return (
       <SafeAreaView style={styles.container}>
@@ -246,6 +297,40 @@ export default function LeagueSettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* FOTO DE LA LIGA */}
+        <View style={styles.sectionHeaderBox}>
+          <Text style={styles.sectionHeader}>FOTO DE LA LIGA</Text>
+        </View>
+        <View style={styles.leaguePhotoCard}>
+          <View style={styles.leaguePhotoWrap}>
+            {profilePhotoUrl ? (
+              <Image source={{ uri: profilePhotoUrl }} style={styles.leaguePhotoImage} />
+            ) : (
+              <View style={styles.leaguePhotoPlaceholder}>
+                <MaterialCommunityIcons name="image-plus" size={40} color={Colors.textMuted} />
+              </View>
+            )}
+          </View>
+          {isAdminOrOwner && (
+            <TouchableOpacity
+              style={styles.leaguePhotoBtn}
+              onPress={handlePickLeaguePhoto}
+              disabled={uploadingPhoto}
+            >
+              {uploadingPhoto ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Ionicons name="camera-outline" size={18} color="white" />
+                  <Text style={styles.leaguePhotoBtnText}>
+                    {profilePhotoUrl ? "Cambiar foto" : "Subir foto"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* INFORMACIÓN */}
         <View style={styles.sectionHeaderBox}>
           <Text style={styles.sectionHeader}>INFORMACIÓN DE LA LIGA</Text>
@@ -301,7 +386,9 @@ export default function LeagueSettingsScreen() {
               <Text style={styles.sectionHeader}>PERSONALIZAR MEDALLAS</Text>
             </View>
             <View style={styles.formContainer}>
-              {MEDALS_INFO.map((medal) => (
+              {MEDALS_INFO.filter(
+                (m) => m.id !== "segundo" && m.id !== "tercero",
+              ).map((medal) => (
                 <View key={medal.id} style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>{medal.name} (por defecto)</Text>
                   <TextInput
@@ -534,6 +621,46 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     padding: 12,
     borderRadius: 10,
+  },
+  leaguePhotoCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    alignItems: "center",
+  },
+  leaguePhotoWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: "hidden",
+    backgroundColor: Colors.surfaceDark,
+    marginBottom: 12,
+  },
+  leaguePhotoImage: {
+    width: "100%",
+    height: "100%",
+  },
+  leaguePhotoPlaceholder: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  leaguePhotoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  leaguePhotoBtnText: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "800",
   },
   formContainer: {
     backgroundColor: Colors.surface,

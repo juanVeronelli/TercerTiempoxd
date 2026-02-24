@@ -48,26 +48,28 @@ export default function AdvancedStatsScreen() {
     description,
     data,
     type,
+    percentLabel,
+    unitLabel = "partidos",
   }: {
     title: string;
     description: string;
     data: any;
     type: "win" | "loss";
+    percentLabel: string;
+    unitLabel?: string;
   }) => {
     if (!data) return null;
 
-    // Cálculo de efectividad según el contexto
-    const isRivalry = title.includes("VÍCTIMA") || title.includes("RIVAL");
-    const winRate =
-      type === "win"
-        ? data.winRate || data.winRateAgainst
-        : 100 - (data.winRate || 0);
-    const total = data.matches;
-    const wins = Math.round((winRate / 100) * total);
-    const losses = total - wins;
-
+    const total = data.matches ?? data.duelsPlayed ?? 0;
+    const wins = data.wins ?? 0;
+    const losses = data.losses ?? total - wins;
+    const winRate = data.winRate ?? data.winRateAgainst ?? (total ? Math.round((wins / total) * 100) : 0);
+    const displayPercent = type === "win" ? winRate : 100 - winRate;
     const accentColor = type === "win" ? "#10B981" : "#EF4444";
-    const iconName = isRivalry ? "sword-cross" : "handshake";
+    const iconName =
+      title.includes("VÍCTIMA") || title.includes("RIVAL") || title.includes("DUELO")
+        ? "sword-cross"
+        : "handshake";
 
     return (
       <View style={styles.card}>
@@ -82,7 +84,7 @@ export default function AdvancedStatsScreen() {
               {title}
             </Text>
           </View>
-          <Text style={styles.matchCount}>{total} PARTIDOS</Text>
+          <Text style={styles.matchCount}>{total} {unitLabel}</Text>
         </View>
 
         <Text style={styles.cardDescription}>{description}</Text>
@@ -98,23 +100,21 @@ export default function AdvancedStatsScreen() {
             <View style={styles.statsRow}>
               <View style={styles.statMini}>
                 <Text style={[styles.statMiniText, { color: "#10B981" }]}>
-                  {wins} GANADOS
+                  {wins} ganados
                 </Text>
               </View>
               <View style={styles.statMini}>
                 <Text style={[styles.statMiniText, { color: "#EF4444" }]}>
-                  {losses} PERDIDOS
+                  {losses} perdidos
                 </Text>
               </View>
             </View>
           </View>
           <View style={styles.rateContainer}>
             <Text style={[styles.rateValue, { color: accentColor }]}>
-              {winRate}%
+              {displayPercent}%
             </Text>
-            <Text style={styles.rateLabel}>
-              {isRivalry ? "TU DOMINIO" : "ÉXITO"}
-            </Text>
+            <Text style={styles.rateLabel}>{percentLabel}</Text>
           </View>
         </View>
 
@@ -122,7 +122,7 @@ export default function AdvancedStatsScreen() {
           <View
             style={[
               styles.progressFill,
-              { width: `${winRate}%`, backgroundColor: accentColor },
+              { width: `${displayPercent}%`, backgroundColor: accentColor },
             ]}
           />
         </View>
@@ -153,48 +153,92 @@ export default function AdvancedStatsScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* EXPLICACIÓN DE SECCIÓN 1 */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>SOCIOS EN CANCHA</Text>
           <Text style={styles.sectionSub}>
-            Analiza tu rendimiento cuando juegas en el mismo equipo que estos
-            jugadores.
+            Compañeros con los que más partidos jugaste en el mismo equipo. Por
+            cantidad de victorias o derrotas juntos.
           </Text>
         </View>
 
         <RenderStatCard
-          title="MEJOR SOCIO"
-          description="El jugador con el que más partidos has ganado compartiendo equipo."
+          title="CON QUIÉN MÁS GANASTE"
+          description="El compañero con el que más veces jugaste en tu equipo y ganaste."
           data={stats?.bestPartner}
           type="win"
+          percentLabel="Victorias juntos"
         />
         <RenderStatCard
-          title="QUÍMICA NEGATIVA"
-          description="Cuando juegan juntos, el porcentaje de derrota es el más alto de tu historial."
+          title="CON QUIÉN MÁS PERDISTE"
+          description="El compañero con el que más veces jugaste en tu equipo y perdiste."
           data={stats?.worstPartner}
           type="loss"
+          percentLabel="Derrotas juntos"
         />
 
-        {/* EXPLICACIÓN DE SECCIÓN 2 */}
         <View style={[styles.sectionHeader, { marginTop: 25 }]}>
-          <Text style={styles.sectionTitle}>DUELOS PERSONALES</Text>
+          <Text style={styles.sectionTitle}>RIVALES EN CANCHA</Text>
           <Text style={styles.sectionSub}>
-            Estadísticas cara a cara cuando se encuentran en equipos contrarios.
+            Jugadores que van en el equipo contrario. El % es de partidos que
+            ganás vos cuando se enfrentan.
           </Text>
         </View>
 
         <RenderStatCard
           title="TU VÍCTIMA"
-          description="El rival al que más veces has derrotado cuando te lo cruzas enfrente."
+          description="El rival al que más le ganás cuando juega contra vos."
           data={stats?.easyTarget}
           type="win"
+          percentLabel="Vos ganás"
         />
         <RenderStatCard
           title="TU RIVAL DIRECTO"
-          description="Tu verdugo. El jugador que más veces te ha ganado estando en el otro equipo."
-          data={stats?.biggestRival}
+          description="El rival que más te gana cuando juega contra vos."
+          data={
+            stats?.biggestRival &&
+            stats?.easyTarget &&
+            stats.biggestRival.userId !== stats.easyTarget.userId &&
+            stats.biggestRival.name !== stats.easyTarget.name
+              ? stats.biggestRival
+              : null
+          }
           type="loss"
+          percentLabel="Él te gana"
         />
+        {(!stats?.biggestRival || (stats?.easyTarget && stats?.biggestRival?.userId === stats?.easyTarget?.userId)) && stats?.easyTarget && (
+          <Text style={styles.hint}>
+            Jugá contra más rivales distintos para desbloquear «Tu rival directo».
+          </Text>
+        )}
+
+        <View style={[styles.sectionHeader, { marginTop: 25 }]}>
+          <Text style={styles.sectionTitle}>DUELOS 1v1</Text>
+          <Text style={styles.sectionSub}>
+            Rivales en duelos directos. El % es de duelos ganados por cada uno.
+          </Text>
+        </View>
+
+        <RenderStatCard
+          title="DUELO: TU VÍCTIMA"
+          description="Con quien más duelos jugaste y más ganaste."
+          data={stats?.duelVictim}
+          type="win"
+          percentLabel="Vos ganás"
+          unitLabel="duelos"
+        />
+        <RenderStatCard
+          title="DUELO: TU NEMESIS"
+          description="Con quien más duelos jugaste y más perdiste."
+          data={stats?.duelNemesis}
+          type="loss"
+          percentLabel="Él te gana"
+          unitLabel="duelos"
+        />
+        {!stats?.duelVictim && !stats?.duelNemesis && (
+          <Text style={styles.hint}>
+            Jugá duelos 1v1 en partidos de la liga para desbloquear estas métricas.
+          </Text>
+        )}
 
         <View style={{ height: 50 }} />
       </ScrollView>
@@ -229,8 +273,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionSub: { color: "#6B7280", fontSize: 11, lineHeight: 15 },
+  hint: {
+    color: "#64748B",
+    fontSize: 12,
+    fontStyle: "italic",
+    marginTop: -8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
 
-  // CARD REDISEÑADA
+  // CARD
   card: {
     backgroundColor: "#1F2937",
     borderRadius: 14,

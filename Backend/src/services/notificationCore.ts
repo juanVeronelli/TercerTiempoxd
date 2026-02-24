@@ -48,9 +48,12 @@ export async function sendNotificationWithDb(
     select: { id: true, created_at: true },
   });
 
-  sendPushIfEligible(db, userId, title, body, data).catch((err) => {
-    console.error("[notificationCore] Push delivery failed:", err);
-  });
+  // Logros: solo se guardan en DB para la campanita in-app. No se envía push al celular.
+  if (type !== "ACHIEVEMENT_UNLOCKED") {
+    sendPushIfEligible(db, userId, title, body, data).catch((err) => {
+      console.error("[notificationCore] Push delivery failed:", err);
+    });
+  }
 
   return record;
 }

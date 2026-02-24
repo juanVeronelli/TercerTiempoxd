@@ -467,67 +467,6 @@ export default function MatchResultsScreen() {
           </CoachmarkHighlight>
         </View>
 
-        {/* Quién votó qué (PRO: texto claro; FREE: difuminado + CTA Revelar) */}
-        {(matchData?.votes_breakdown?.length ?? 0) > 0 && (
-          <View style={styles.sectionHeaderBox}>
-            <Text style={styles.sectionHeader}>QUIÉN VOTÓ QUÉ</Text>
-          </View>
-        )}
-        {(matchData?.votes_breakdown?.length ?? 0) > 0 && (
-          <View style={styles.votesRevealCard}>
-            {(() => {
-              const isPro = (matchData?.userPlanType ?? "FREE").toUpperCase() === "PRO";
-              const breakdown = matchData.votes_breakdown as { voter_name: string; target_name: string; overall: number }[];
-              const listContent = (
-                <View style={styles.votesBreakdownList}>
-                  {breakdown.map((v, i) => (
-                    <View key={i} style={styles.votesBreakdownRow}>
-                      <Text style={styles.votesBreakdownText} numberOfLines={1}>
-                        <Text style={{ color: Colors.textSecondary }}>{v.voter_name}</Text>
-                        {" → "}
-                        <Text style={{ color: "white", fontWeight: "600" }}>{v.target_name}</Text>
-                        {" "}
-                        <Text style={{ color: THEME.gold, fontWeight: "700" }}>{Number(v.overall).toFixed(1)}</Text>
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              );
-              if (isPro) {
-                return listContent;
-              }
-              return (
-                <View style={styles.votesRevealLocked}>
-                  <View style={[styles.votesBreakdownList, { opacity: 0.35 }]}>
-                    {breakdown.map((v, i) => (
-                      <View key={i} style={styles.votesBreakdownRow}>
-                        <Text style={styles.votesBreakdownText} numberOfLines={1}>
-                          {v.voter_name} → {v.target_name} {Number(v.overall).toFixed(1)}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                  <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-                    <View style={styles.votesRevealOverlay} />
-                    <View style={styles.votesRevealCtaBox}>
-                      <Ionicons name="lock-closed" size={32} color={THEME.gold} style={{ marginBottom: 10 }} />
-                      <Text style={styles.votesRevealCtaTitle}>Revelar votos</Text>
-                      <Text style={styles.votesRevealCtaSub}>Con Plan PRO ves quién votó a quién.</Text>
-                      <TouchableOpacity
-                        style={styles.votesRevealCtaButton}
-                        activeOpacity={0.85}
-                        onPress={() => router.push("/(main)/paywall")}
-                      >
-                        <Text style={styles.votesRevealCtaButtonText}>Revelar votos (Plan PRO)</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              );
-            })()}
-          </View>
-        )}
-
         <View
           onLayout={(e) => {
             sectionYOffsets.current[2] = e.nativeEvent.layout.y;
@@ -604,6 +543,87 @@ export default function MatchResultsScreen() {
             );
           })}
         </View>
+
+        {(matchData?.votes_breakdown?.length ?? 0) > 0 && (
+          <View style={[styles.votesRevealCard, { marginTop: 16 }]}>
+            {(() => {
+              const isPro =
+                (matchData?.userPlanType ?? "FREE").toUpperCase() === "PRO";
+
+              if (isPro) {
+                return (
+                  <>
+                    <View style={styles.votesEntryHeader}>
+                      <View style={styles.votesEntryIconWrap}>
+                        <Ionicons
+                          name="people-circle"
+                          size={26}
+                          color={Colors.accentGold}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.votesEntryTitle}>
+                          Quién votó a quién
+                        </Text>
+                        <Text style={styles.votesEntrySubtitle}>
+                          Mirá el detalle completo de los votos del partido.
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={20}
+                        color={Colors.textSecondary}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.votesEntryButton}
+                      activeOpacity={0.9}
+                      onPress={() =>
+                        router.push(
+                          `/(main)/league/match/votes?matchId=${matchId}`,
+                        )
+                      }
+                    >
+                      <Text style={styles.votesEntryButtonText}>
+                        VER DETALLE DE VOTOS
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                );
+              }
+
+              return (
+                <View style={styles.votesRevealLocked}>
+                  <View style={styles.votesPromoContent}>
+                    <View style={styles.votesPromoIconWrap}>
+                      <Ionicons
+                        name="lock-closed"
+                        size={26}
+                        color={Colors.accentGold}
+                      />
+                    </View>
+                    <Text style={styles.votesRevealCtaTitle}>
+                      Votos anónimos
+                    </Text>
+                    <Text style={styles.votesRevealCtaSub}>
+                      Solo los equipos con Plan PRO pueden ver quién votó a quién
+                      en cada partido.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.votesRevealCtaButton}
+                      activeOpacity={0.9}
+                      onPress={() => router.push("/(main)/paywall")}
+                    >
+                      <Text style={styles.votesRevealCtaButtonText}>
+                        Desbloquear con Plan PRO
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })()}
+          </View>
+        )}
           </CoachmarkHighlight>
         </View>
 
@@ -882,18 +902,75 @@ const styles = StyleSheet.create({
   trendText: { fontSize: 12, fontWeight: "bold", marginLeft: 2 },
   dividerVertical: { width: 1, height: 30, backgroundColor: "#374151" },
   votesRevealCard: {
-    backgroundColor: "#1F2937",
+    backgroundColor: Colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#374151",
+    borderColor: Colors.border,
     marginBottom: 25,
     overflow: "hidden",
     minHeight: 120,
   },
-  votesBreakdownList: { padding: 14 },
-  votesBreakdownRow: { paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "rgba(55,65,81,0.5)" },
-  votesBreakdownText: { color: "#E5E7EB", fontSize: 13 },
-  votesRevealLocked: { position: "relative", minHeight: 180 },
+  votesEntryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 10,
+  },
+  votesEntryIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    backgroundColor: Colors.accentGoldSubtle,
+  },
+  votesEntryTitle: {
+    color: Colors.textHeading,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  votesEntrySubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    marginTop: 4,
+  },
+  votesEntryButton: {
+    marginHorizontal: 16,
+    marginBottom: 14,
+    marginTop: 8,
+    backgroundColor: Colors.accentGold,
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  votesEntryButtonText: {
+    color: Colors.textInverse,
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  votesRevealLocked: {
+    position: "relative",
+    minHeight: 160,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  votesPromoContent: {
+    padding: 20,
+    alignItems: "center",
+  },
+  votesPromoIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    marginBottom: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.accentGoldSubtle,
+  },
   votesRevealOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(17,24,39,0.85)",
@@ -905,24 +982,25 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   votesRevealCtaTitle: {
-    color: "white",
-    fontSize: 16,
+    color: Colors.textHeading,
+    fontSize: 15,
     fontWeight: "800",
     marginBottom: 4,
   },
   votesRevealCtaSub: {
-    color: "#9CA3AF",
+    color: Colors.textSecondary,
     fontSize: 13,
     marginBottom: 16,
+    textAlign: "center",
   },
   votesRevealCtaButton: {
-    backgroundColor: THEME.gold,
+    backgroundColor: Colors.accentGold,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,
   },
   votesRevealCtaButtonText: {
-    color: "black",
+    color: Colors.textInverse,
     fontSize: 14,
     fontWeight: "900",
     letterSpacing: 0.5,
