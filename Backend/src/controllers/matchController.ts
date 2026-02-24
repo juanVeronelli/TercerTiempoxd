@@ -183,12 +183,38 @@ export const confirmMatch = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Falta matchId" });
     }
 
-    // UPDATE SEGURO
+    // 1) Verificar que el partido exista y esté OPEN
+    const match = await prisma.matches.findUnique({
+      where: { id: matchId },
+      select: { status: true },
+    });
+    if (!match) {
+      return res.status(404).json({ error: "Partido no encontrado" });
+    }
+    if (match.status !== "OPEN") {
+      return res
+        .status(400)
+        .json({ error: "No se puede confirmar (El partido no está abierto)" });
+    }
+
+    // 2) Verificar que el usuario esté cargado como jugador en este partido
+    const playerRecord = await prisma.match_players.findFirst({
+      where: { match_id: matchId, user_id: userId },
+      select: { match_id: true, user_id: true },
+    });
+    if (!playerRecord) {
+      return res.status(400).json({
+        error: "NO_PLAYER_RECORD",
+        message:
+          "No estás cargado como jugador en este partido. Pedile al admin que te agregue.",
+      });
+    }
+
+    // 3) UPDATE SEGURO (solo cambia has_confirmed del registro del usuario)
     const result = await prisma.match_players.updateMany({
       where: {
         match_id: matchId,
         user_id: userId,
-        matches: { status: "OPEN" },
       },
       data: { has_confirmed: true },
     });
