@@ -8,6 +8,10 @@ export const COACHMARK_ALWAYS_SHOW = false;
 
 export const COACHMARK_PREFIX = "@tercer_tiempo_coachmark_";
 
+/** Sube este número para que todos los usuarios vuelvan a ver onboarding + coachmarks una vez. */
+export const ONBOARDING_RESET_VERSION = 2;
+export const ONBOARDING_RESET_VERSION_KEY = "@tercer_tiempo_onboarding_reset_version";
+
 export const CoachmarkKeys = {
   RANKING: `${COACHMARK_PREFIX}has_seen_ranking`,
   STATS: `${COACHMARK_PREFIX}has_seen_stats`,
@@ -18,5 +22,7 @@ export const CoachmarkKeys = {
   PROFILE: `${COACHMARK_PREFIX}has_seen_profile`,
   RESULTS: `${COACHMARK_PREFIX}has_seen_results`,
 } as const;
+
+export const ALL_COACHMARK_KEYS: string[] = Object.values(CoachmarkKeys);
 
 export type CoachmarkKey = (typeof CoachmarkKeys)[keyof typeof CoachmarkKeys];

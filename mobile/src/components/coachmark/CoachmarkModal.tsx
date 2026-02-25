@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Modal,
   View,
@@ -6,7 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   Pressable,
-  Dimensions,
+  useWindowDimensions,
+  PixelRatio,
 } from "react-native";
 import Animated, {
   Easing,
@@ -26,7 +27,6 @@ const OVERLAY_FADE_DURATION = 220;
 const TOOLTIP_SLIDE_DURATION = 360;
 const TOOLTIP_DELAY = 100;
 const EXIT_DURATION = 280;
-const SPOTLIGHT_TRANSITION_DURATION = 280;
 
 const easeOutCubic = Easing.out(Easing.cubic);
 
@@ -52,8 +52,6 @@ type CoachmarkModalProps = {
   onRequestNextStep?: (nextStep: number) => void;
 };
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
 export function CoachmarkModal({
   visible,
   steps,
@@ -64,54 +62,56 @@ export function CoachmarkModal({
   stepIndexProp,
   onRequestNextStep,
 }: CoachmarkModalProps) {
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const [internalStep, setInternalStep] = useState(0);
   const [isClosing, setClosing] = useState(false);
-  /** Posición del tooltip fijada por paso para evitar "desaparece/vuelve" al hacer scroll. */
-  const [tooltipAtTopLocked, setTooltipAtTopLocked] = useState<boolean | null>(null);
 
   const stepIndex = stepIndexProp !== undefined ? stepIndexProp : internalStep;
   const step = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;
   const opacity = useSharedValue(1);
-  const spotlightOpacity = useSharedValue(1);
   const finishCalledRef = useRef(false);
-  const prevTooltipAtTopRef = useRef<boolean | null>(null);
+
+  /** Frame estable: redondeado a píxeles del dispositivo, con padding y dentro de pantalla. */
+  const stableFrame = useMemo(() => {
+    if (!targetFrame || targetFrame.width <= 0 || targetFrame.height <= 0) return null;
+    const round = (v: number) => Math.round(PixelRatio.roundToNearestPixel(v));
+    const PAD = 2;
+    const minSize = 24;
+    let x = round(targetFrame.x) - PAD;
+    let y = round(targetFrame.y) - PAD;
+    let w = Math.max(minSize, round(targetFrame.width) + PAD * 2);
+    let h = Math.max(minSize, round(targetFrame.height) + PAD * 2);
+    x = Math.max(0, Math.min(x, SCREEN_WIDTH - w));
+    y = Math.max(0, Math.min(y, SCREEN_HEIGHT - h));
+    w = Math.min(w, SCREEN_WIDTH - x);
+    h = Math.min(h, SCREEN_HEIGHT - y);
+    if (w < 1 || h < 1) return null;
+    return { x, y, width: w, height: h };
+  }, [
+    targetFrame?.x,
+    targetFrame?.y,
+    targetFrame?.width,
+    targetFrame?.height,
+    SCREEN_WIDTH,
+    SCREEN_HEIGHT,
+  ]);
+
+  const tooltipAtTop =
+    stableFrame != null
+      ? stableFrame.y + stableFrame.height / 2 > SCREEN_HEIGHT / 2
+      : false;
 
   useEffect(() => {
     if (visible) {
       finishCalledRef.current = false;
       onStepChange?.(stepIndex);
-      setTooltipAtTopLocked(null);
-      prevTooltipAtTopRef.current = null;
     } else {
       onStepChange?.(-1);
       setInternalStep(0);
       setClosing(false);
-      setTooltipAtTopLocked(null);
-      spotlightOpacity.value = 1;
-      prevTooltipAtTopRef.current = null;
     }
   }, [visible, stepIndex, onStepChange]);
-
-  useEffect(() => {
-    if (!visible || !targetFrame || targetFrame.width <= 0 || targetFrame.height <= 0) return;
-    const widgetCenterY = targetFrame.y + targetFrame.height / 2;
-    const tooltipAtTop = widgetCenterY > SCREEN_HEIGHT / 2;
-    if (tooltipAtTopLocked === null) {
-      setTooltipAtTopLocked(tooltipAtTop);
-    }
-    const prev = prevTooltipAtTopRef.current;
-    prevTooltipAtTopRef.current = tooltipAtTopLocked ?? tooltipAtTop;
-    if (prev !== null && prev !== (tooltipAtTopLocked ?? tooltipAtTop)) {
-      spotlightOpacity.value = 0;
-      spotlightOpacity.value = withTiming(1, {
-        duration: SPOTLIGHT_TRANSITION_DURATION,
-        easing: easeOutCubic,
-      });
-    } else if (prev === null) {
-      spotlightOpacity.value = 1;
-    }
-  }, [stepIndex, visible, targetFrame, tooltipAtTopLocked]);
 
   useEffect(() => {
     if (!isClosing) return;
@@ -149,21 +149,13 @@ export function CoachmarkModal({
     opacity: opacity.value,
   }));
 
-  const spotlightAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: spotlightOpacity.value,
-  }));
-
   if (!step) return null;
 
-  const hasSpotlight = targetFrame && targetFrame.width > 0 && targetFrame.height > 0;
-  const { x, y, width: w, height: h } = targetFrame ?? { x: 0, y: 0, width: 0, height: 0 };
+  const hasSpotlight = stableFrame != null;
+  const { x, y, width: w, height: h } = stableFrame ?? { x: 0, y: 0, width: 0, height: 0 };
   const spotlightPath = hasSpotlight
     ? `M 0 0 L ${SCREEN_WIDTH} 0 L ${SCREEN_WIDTH} ${SCREEN_HEIGHT} L 0 ${SCREEN_HEIGHT} Z M ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} L ${x} ${y} Z`
     : "";
-
-  const widgetCenterY = y + h / 2;
-  const tooltipAtTopComputed = hasSpotlight && widgetCenterY > SCREEN_HEIGHT / 2;
-  const tooltipAtTop = tooltipAtTopLocked !== null ? tooltipAtTopLocked : tooltipAtTopComputed;
 
   const tooltipEntering = tooltipAtTop
     ? SlideInDown.duration(TOOLTIP_SLIDE_DURATION).delay(TOOLTIP_DELAY)
@@ -174,6 +166,7 @@ export function CoachmarkModal({
       visible={visible}
       transparent
       animationType="none"
+      statusBarTranslucent
       onRequestClose={onRequestClose ?? handleClose}
     >
       <Animated.View
@@ -186,7 +179,7 @@ export function CoachmarkModal({
         {hasSpotlight ? (
           <Animated.View
             entering={FadeIn.duration(OVERLAY_FADE_DURATION)}
-            style={[StyleSheet.absoluteFill, spotlightAnimatedStyle]}
+            style={StyleSheet.absoluteFill}
           >
             <Pressable style={StyleSheet.absoluteFill} onPress={onRequestClose ?? handleClose}>
               <Svg width={SCREEN_WIDTH} height={SCREEN_HEIGHT} style={StyleSheet.absoluteFill}>
@@ -202,7 +195,7 @@ export function CoachmarkModal({
             <Pressable style={styles.dimFill} onPress={onRequestClose ?? handleClose} />
           </Animated.View>
         )}
-        <Animated.View key={`tip-${tooltipAtTop}`} entering={tooltipEntering}>
+        <Animated.View entering={tooltipEntering}>
           <Pressable style={styles.tooltipCard} onPress={(e) => e.stopPropagation()}>
             <View style={styles.tooltipHeader}>
               <View style={styles.stepPill}>
@@ -262,7 +255,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: Colors.borderLight,
-    maxWidth: SCREEN_WIDTH - 40,
+    maxWidth: "100%",
   },
   tooltipHeader: {
     flexDirection: "row",

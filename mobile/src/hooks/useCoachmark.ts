@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { COACHMARK_ALWAYS_SHOW, type CoachmarkKey } from "../constants/CoachmarkKeys";
 
@@ -44,7 +45,7 @@ export function useCoachmark(storageKey: CoachmarkKey) {
   return { shouldShow: effectiveShow, markSeen, loaded };
 }
 
-const COACHMARK_READY_DELAY_MS = 600;
+const COACHMARK_READY_DELAY_MS = Platform.OS === "android" ? 1200 : 700;
 
 /**
  * Retrasa la aparición del coachmark hasta que la pantalla esté estable.

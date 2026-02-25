@@ -4,6 +4,11 @@ import { Redirect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { Colors } from "../src/constants/Colors";
+import {
+  ONBOARDING_RESET_VERSION,
+  ONBOARDING_RESET_VERSION_KEY,
+  ALL_COACHMARK_KEYS,
+} from "../src/constants/CoachmarkKeys";
 import { OnboardingSlider } from "../src/components/onboarding";
 
 const ONBOARDING_VIEWED_KEY = "@onboarding_viewed";
@@ -15,6 +20,18 @@ export default function Index() {
   useEffect(() => {
     const init = async () => {
       try {
+        const storedVersion = await AsyncStorage.getItem(ONBOARDING_RESET_VERSION_KEY);
+        const version = storedVersion ? parseInt(storedVersion, 10) : 0;
+        if (version < ONBOARDING_RESET_VERSION) {
+          await AsyncStorage.multiRemove([
+            ...ALL_COACHMARK_KEYS,
+            ONBOARDING_VIEWED_KEY,
+          ]);
+          await AsyncStorage.setItem(
+            ONBOARDING_RESET_VERSION_KEY,
+            String(ONBOARDING_RESET_VERSION),
+          );
+        }
         const viewed = await AsyncStorage.getItem(ONBOARDING_VIEWED_KEY);
         setOnboardingViewed(viewed === "true");
       } catch (error) {
