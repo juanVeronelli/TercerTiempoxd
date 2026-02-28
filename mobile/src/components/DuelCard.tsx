@@ -68,7 +68,10 @@ export const DuelCard = ({
   };
 
   const navigateToProfile = (playerId: string) => {
-    router.push(`/(main)/profile/${playerId}` as any);
+    router.push({
+      pathname: "/(main)/user/[id]",
+      params: { id: playerId, ...(leagueId && { leagueId }) },
+    });
   };
 
   const navigateToPredictions = () => {

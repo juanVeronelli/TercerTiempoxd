@@ -22,6 +22,7 @@ import {
   submitVotes,
   getRecentCompletedMatches,
   getMatchResults,
+  getMatchPredictionsResult,
   generateMatchDuel,
   getMatchDuel,
 } from "../controllers/matchController.js";
@@ -66,6 +67,7 @@ router.get(
   getRecentCompletedMatches,
 );
 router.get("/:matchId/results", authenticateToken, getMatchResults);
+router.get("/:matchId/predictions-result", authenticateToken, getMatchPredictionsResult);
 router.post("/:matchId/duel/generate", authenticateToken, generateMatchDuel);
 router.get("/:matchId/duel", authenticateToken, getMatchDuel);
 

@@ -95,6 +95,18 @@ export default function MatchResultsScreen() {
   const [players, setPlayers] = useState<any[]>([]);
   const [comments, setComments] = useState<any[]>([]);
   const [honors, setHonors] = useState<any[]>([]);
+  const [predictionsResult, setPredictionsResult] = useState<{
+    questions: Array<{
+      question_id: string;
+      question_label: string;
+      points_reward: number;
+      user_option_label: string | null;
+      correct_option_label: string | null;
+      correct: boolean;
+      points_earned: number;
+    }>;
+    totalPoints: number;
+  } | null>(null);
 
   const { shouldShow: showResultsCoachmark, markSeen: markResultsCoachmark } =
     useCoachmark(CoachmarkKeys.RESULTS);
@@ -184,6 +196,19 @@ export default function MatchResultsScreen() {
 
     if (matchId) fetchResults();
   }, [matchId]);
+
+  useEffect(() => {
+    if (!matchId || loading) return;
+    const fetchPredictionsResult = async () => {
+      try {
+        const res = await apiClient.get(`/match/${matchId}/predictions-result`);
+        setPredictionsResult(res.data);
+      } catch {
+        setPredictionsResult({ questions: [], totalPoints: 0 });
+      }
+    };
+    fetchPredictionsResult();
+  }, [matchId, loading]);
 
   const handlePlayerPress = (playerId: string) => {
     const leagueId = matchData?.league_id;
@@ -737,6 +762,64 @@ export default function MatchResultsScreen() {
           </CoachmarkHighlight>
         </View>
 
+        <View style={styles.sectionHeaderBox}>
+          <Text style={styles.sectionHeader}>MIS PREDICCIONES</Text>
+        </View>
+        <View style={styles.myPredictionsCard}>
+          {predictionsResult === null ? (
+            <View style={styles.predictionDetailEmpty}>
+              <Text style={styles.emptyText}>Cargando...</Text>
+            </View>
+          ) : predictionsResult.questions.length === 0 ? (
+            <View style={styles.predictionDetailEmpty}>
+              <Text style={styles.emptyText}>
+                No participaste en el prode de esta fecha o aún no se resolvieron las predicciones.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {predictionsResult.questions.map((q) => (
+                <View key={q.question_id} style={styles.predictionDetailRow}>
+                  <View style={styles.predictionDetailQuestion}>
+                    <Text style={styles.predictionDetailLabel}>{q.question_label}</Text>
+                    <View style={styles.predictionDetailAnswers}>
+                      <Text style={styles.predictionDetailYour}>
+                        Tu respuesta: {q.user_option_label ?? "—"}
+                      </Text>
+                      {q.correct_option_label != null && (
+                        <Text style={styles.predictionDetailCorrect}>
+                          Correcto: {q.correct_option_label}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  <View style={styles.predictionDetailRight}>
+                    {q.correct ? (
+                      <Ionicons name="checkmark-circle" size={22} color="#10B981" />
+                    ) : (
+                      <Ionicons name="close-circle" size={22} color="#EF4444" />
+                    )}
+                    <Text
+                      style={[
+                        styles.predictionDetailPts,
+                        q.correct && { color: "#10B981" },
+                      ]}
+                    >
+                      +{q.points_earned}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              <View style={styles.predictionDetailTotal}>
+                <Text style={styles.predictionDetailTotalLabel}>Total esta fecha</Text>
+                <Text style={styles.predictionDetailTotalValue}>
+                  {predictionsResult.totalPoints} pts
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+
         <View
           onLayout={(e) => {
             sectionYOffsets.current[5] = e.nativeEvent.layout.y;
@@ -1182,6 +1265,68 @@ const styles = StyleSheet.create({
     color: THEME.textSecondary,
     fontSize: 11,
     fontStyle: "italic",
+  },
+  myPredictionsCard: {
+    backgroundColor: THEME.cardBg,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: THEME.borderColor,
+  },
+  predictionDetailEmpty: {
+    paddingVertical: 12,
+  },
+  predictionDetailRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  predictionDetailQuestion: { flex: 1, marginRight: 12 },
+  predictionDetailLabel: {
+    color: THEME.textPrimary,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  predictionDetailAnswers: { gap: 2 },
+  predictionDetailYour: {
+    color: THEME.textSecondary,
+    fontSize: 11,
+  },
+  predictionDetailCorrect: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontStyle: "italic",
+  },
+  predictionDetailRight: { alignItems: "flex-end" },
+  predictionDetailPts: {
+    color: "#EF4444",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 4,
+  },
+  predictionDetailTotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  predictionDetailTotalLabel: {
+    color: THEME.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  predictionDetailTotalValue: {
+    color: "#22D3EE",
+    fontSize: 16,
+    fontWeight: "900",
   },
   playerRow: {
     flexDirection: "row",

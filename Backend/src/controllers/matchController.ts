@@ -915,6 +915,26 @@ export const getMatchResults = async (req: Request, res: Response) => {
   }
 };
 
+export const getMatchPredictionsResult = async (req: Request, res: Response) => {
+  try {
+    const matchId = req.params.matchId as string;
+    const userId = (req as any).user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: "No autenticado" });
+    }
+    const result = await PredictionService.getMatchPredictionsResultForUser(
+      matchId,
+      userId,
+    );
+    return res.json(result);
+  } catch (error) {
+    console.error("Error fetching match predictions result:", error);
+    res.status(500).json({
+      error: "Error al obtener detalle de tus predicciones",
+    });
+  }
+};
+
 export const generateMatchDuel = async (req: Request, res: Response) => {
   const matchId = req.params.matchId as string;
 

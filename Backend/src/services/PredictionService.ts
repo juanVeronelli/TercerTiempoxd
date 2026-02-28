@@ -350,6 +350,89 @@ export async function processMatchPredictions(
   }
 }
 
+export type PredictionResultItem = {
+  question_id: string;
+  question_label: string;
+  points_reward: number;
+  options: { id: string; label: string; is_correct: boolean | null }[];
+  user_option_id: string | null;
+  user_option_label: string | null;
+  correct_option_id: string | null;
+  correct_option_label: string | null;
+  correct: boolean;
+  points_earned: number;
+};
+
+// ---------------------------------------------------------------------------
+// Detalle de predicciones del usuario para un partido (resultados ya resueltos)
+// ---------------------------------------------------------------------------
+export async function getMatchPredictionsResultForUser(
+  matchId: string,
+  userId: string,
+): Promise<{ questions: PredictionResultItem[]; totalPoints: number }> {
+  const group = await prisma.prediction_groups.findFirst({
+    where: { match_id: matchId, type: "MATCH" },
+    include: {
+      prediction_questions: {
+        include: { prediction_options: true },
+      },
+    },
+  });
+  if (!group || group.prediction_questions.length === 0) {
+    return { questions: [], totalPoints: 0 };
+  }
+
+  const userPreds = await prisma.user_predictions.findMany({
+    where: {
+      user_id: userId,
+      question_id: {
+        in: group.prediction_questions.map((q) => q.id),
+      },
+    },
+    select: { question_id: true, option_id: true },
+  });
+  const userPredByQuestion = new Map(
+    userPreds.map((u) => [u.question_id, u.option_id]),
+  );
+
+  let totalPoints = 0;
+  const questions: PredictionResultItem[] = group.prediction_questions.map(
+    (q) => {
+      const options = q.prediction_options.map((o) => ({
+        id: o.id,
+        label: o.label,
+        is_correct: o.is_correct,
+      }));
+      const correctOption = q.prediction_options.find((o) => o.is_correct);
+      const userOptionId = userPredByQuestion.get(q.id) ?? null;
+      const userOption = userOptionId
+        ? q.prediction_options.find((o) => o.id === userOptionId)
+        : null;
+      const correct = !!(
+        userOptionId &&
+        correctOption &&
+        userOptionId === correctOption.id
+      );
+      const points_earned = correct ? q.points_reward : 0;
+      totalPoints += points_earned;
+      return {
+        question_id: q.id,
+        question_label: q.label,
+        points_reward: q.points_reward,
+        options,
+        user_option_id: userOptionId,
+        user_option_label: userOption?.label ?? null,
+        correct_option_id: correctOption?.id ?? null,
+        correct_option_label: correctOption?.label ?? null,
+        correct,
+        points_earned,
+      };
+    },
+  );
+
+  return { questions, totalPoints };
+}
+
 // ---------------------------------------------------------------------------
 // Listar grupos activos por liga (para el front)
 // Si las tablas no existen o hay error, devuelve listas vacías para no devolver 500
