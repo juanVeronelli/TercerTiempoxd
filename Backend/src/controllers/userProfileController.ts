@@ -263,10 +263,9 @@ export const updateProfileData = async (req: Request, res: Response) => {
 
     if (avatarFrame !== undefined) {
       const frameId = typeof avatarFrame === "object" ? avatarFrame.id : avatarFrame;
-      const allowedFrames = ["none", "simple"];
+      // Nativo (siempre): none, simple, accent (color tema). PRO sin misión: gold.
+      const allowedFrames = ["none", "simple", "accent", "gold"];
       const frameToCosmetic: Record<string, string> = {
-        gold: "gold_frame",
-        accent: "accent_frame",
         danger: "danger_frame",
         streak_frame: "streak_frame",
         mvp_frame: "mvp_frame",

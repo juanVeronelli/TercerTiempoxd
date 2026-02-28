@@ -255,6 +255,40 @@ export default function RankingHubScreen() {
           </TouchableOpacity>
         </CoachmarkHighlight>
 
+        <TouchableOpacity
+          style={styles.navCard}
+          onPress={() =>
+            leagueId
+              ? router.push({
+                  pathname: "/(main)/league/ranking/prode-table",
+                  params: { leagueId },
+                })
+              : router.push("/(main)/league/ranking/prode-table")
+          }
+        >
+          <View
+            style={[
+              styles.iconBox,
+              { backgroundColor: "rgba(34, 211, 238, 0.15)" },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name="crystal-ball"
+              size={32}
+              color="#22D3EE"
+            />
+          </View>
+          <View style={styles.cardTextContainer}>
+            <Text style={[styles.cardTitle, { color: "#22D3EE" }]}>
+              TABLA DEL PRODE
+            </Text>
+            <Text style={styles.cardDesc}>
+              Puntos acumulados por fecha. Quién más acertó en las predicciones.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#4B5563" />
+        </TouchableOpacity>
+
         <Text style={[styles.sectionTitle, { marginTop: 30 }]}>
           ANÁLISIS AVANZADO
         </Text>

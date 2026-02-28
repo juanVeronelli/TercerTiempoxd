@@ -109,6 +109,38 @@ export default function LeagueSettingsScreen() {
 
   // --- ACCIONES DE GESTIÓN ---
 
+  const handleLeaveLeague = () => {
+    showAlert(
+      "Abandonar liga",
+      "¿Estás seguro de que querés salir de esta liga? Dejarás de tener acceso al ranking, partidos y estadísticas.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Abandonar",
+          style: "destructive",
+          onPress: async () => {
+            if (!leagueId) return;
+            setProcessingAction(true);
+            try {
+              await apiClient.post(`/leagues/${leagueId}/leave`);
+              showAlert("Listo", "Has abandonado la liga.", [
+                { text: "OK", onPress: () => router.replace("/(main)") },
+              ]);
+            } catch (error: any) {
+              console.error(error);
+              const msg =
+                error.response?.data?.message ||
+                "No se pudo abandonar la liga. Intentá de nuevo.";
+              showAlert("Error", msg);
+            } finally {
+              setProcessingAction(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const handleUpdate = async () => {
     if (!isAdminOrOwner) return;
     setSaving(true);
@@ -538,22 +570,19 @@ export default function LeagueSettingsScreen() {
 
         <TouchableOpacity
           style={styles.dangerButton}
-          onPress={
-            isOwner
-              ? () => {
-                  /* handleDeleteLeague */
-                }
-              : () => {
-                  /* handleLeaveLeague */
-                }
-          }
+          onPress={isOwner ? () => { /* handleDeleteLeague */ } : handleLeaveLeague}
+          disabled={processingAction}
         >
-          <Ionicons
-            name={isOwner ? "trash" : "exit-outline"}
-            size={20}
-            color={Colors.status.error}
-            style={{ marginRight: 10 }}
-          />
+          {processingAction && !isOwner ? (
+            <ActivityIndicator size="small" color={Colors.status.error} style={{ marginRight: 10 }} />
+          ) : (
+            <Ionicons
+              name={isOwner ? "trash" : "exit-outline"}
+              size={20}
+              color={Colors.status.error}
+              style={{ marginRight: 10 }}
+            />
+          )}
           <Text style={styles.dangerText}>
             {isOwner ? "ELIMINAR LIGA" : "ABANDONAR LIGA"}
           </Text>

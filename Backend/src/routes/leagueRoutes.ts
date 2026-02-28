@@ -6,6 +6,7 @@ import {
   getLeagueById,
   getGeneralRanking,
   getHonorsRanking,
+  getProdeRanking,
   removeMember,
   leaveLeague,
   updateLeague,
@@ -31,6 +32,7 @@ router.get("/:leagueId/stats/advanced", authenticateToken, getAdvancedStats);
 router.get("/:id/members", authenticateToken, getLeagueMembers);
 router.get("/:id/stats/general", authenticateToken, getGeneralRanking);
 router.get("/:leagueId/stats/honors", authenticateToken, getHonorsRanking);
+router.get("/:leagueId/stats/prode-ranking", authenticateToken, getProdeRanking);
 router.get("/:id/my-stats", authenticateToken, getUserLeagueStats);
 router.get(
   "/:id/users/:userId/stats",

@@ -316,7 +316,6 @@ export default function MatchResultsScreen() {
         })),
         top3Prode: [...players]
           .sort((a, b) => (b.prediction_points ?? 0) - (a.prediction_points ?? 0))
-          .filter((p) => (p.prediction_points ?? 0) > 0)
           .slice(0, 3)
           .map((p) => ({
             name: p.full_name || p.username || "Jugador",
@@ -671,9 +670,12 @@ export default function MatchResultsScreen() {
             const sorted = [...players].sort(
               (a, b) => (b.prediction_points ?? 0) - (a.prediction_points ?? 0),
             );
-            const top3 = sorted
-              .slice(0, 3)
-              .filter((p) => (p.prediction_points ?? 0) > 0);
+            const top3 = sorted.slice(0, 3);
+            const participantsCount = players.filter(
+              (p) => (p.prediction_points ?? 0) > 0,
+            ).length;
+            const showNoMoreLegend =
+              top3.length > 0 && participantsCount < 3 && participantsCount > 0;
             if (top3.length === 0) {
               return (
                 <View style={styles.predictionTop3Empty}>
@@ -683,42 +685,53 @@ export default function MatchResultsScreen() {
                 </View>
               );
             }
-            return top3.map((player, index) => {
-              const pts = player.prediction_points ?? 0;
-              const medalIcon =
-                index === 0 ? "crystal-ball" : index === 1 ? "medal" : "medal";
-              const medalColor =
-                index === 0 ? THEME.gold : index === 1 ? "#9CA3AF" : "#B45309";
-              return (
-                <TouchableOpacity
-                  key={player.id}
-                  style={styles.predictionTop3Row}
-                  onPress={() => handlePlayerPress(player.id)}
-                >
-                  <View style={styles.predictionTop3Medal}>
-                    <MaterialCommunityIcons
-                      name={medalIcon as any}
-                      size={18}
-                      color={medalColor}
-                    />
-                    <Text
-                      style={[styles.predictionTop3Pos, { color: medalColor }]}
+            return (
+              <>
+                {top3.map((player, index) => {
+                  const pts = player.prediction_points ?? 0;
+                  const medalIcon =
+                    index === 0 ? "crystal-ball" : index === 1 ? "medal" : "medal";
+                  const medalColor =
+                    index === 0 ? THEME.gold : index === 1 ? "#9CA3AF" : "#B45309";
+                  return (
+                    <TouchableOpacity
+                      key={player.id}
+                      style={styles.predictionTop3Row}
+                      onPress={() => handlePlayerPress(player.id)}
                     >
-                      #{index + 1}
+                      <View style={styles.predictionTop3Medal}>
+                        <MaterialCommunityIcons
+                          name={medalIcon as any}
+                          size={18}
+                          color={medalColor}
+                        />
+                        <Text
+                          style={[styles.predictionTop3Pos, { color: medalColor }]}
+                        >
+                          #{index + 1}
+                        </Text>
+                      </View>
+                      <View style={styles.predictionTop3NameCol}>
+                        <Text style={styles.predictionTop3Name} numberOfLines={1}>
+                          {player.full_name || player.username || "Jugador"}
+                        </Text>
+                      </View>
+                      <View style={styles.predictionTop3PtsBox}>
+                        <Text style={styles.predictionTop3Pts}>{pts}</Text>
+                        <Text style={styles.predictionTop3PtsLabel}>PTS</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+                {showNoMoreLegend && (
+                  <View style={styles.predictionTop3Legend}>
+                    <Text style={styles.predictionTop3LegendText}>
+                      No hubo más votaciones
                     </Text>
                   </View>
-                  <View style={styles.predictionTop3NameCol}>
-                    <Text style={styles.predictionTop3Name} numberOfLines={1}>
-                      {player.full_name || player.username || "Jugador"}
-                    </Text>
-                  </View>
-                  <View style={styles.predictionTop3PtsBox}>
-                    <Text style={styles.predictionTop3Pts}>{pts}</Text>
-                    <Text style={styles.predictionTop3PtsLabel}>PTS</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            });
+                )}
+              </>
+            );
           })()}
         </View>
           </CoachmarkHighlight>
@@ -1159,6 +1172,16 @@ const styles = StyleSheet.create({
   },
   predictionTop3Empty: {
     paddingVertical: 8,
+  },
+  predictionTop3Legend: {
+    paddingTop: 10,
+    paddingHorizontal: 4,
+    alignItems: "center",
+  },
+  predictionTop3LegendText: {
+    color: THEME.textSecondary,
+    fontSize: 11,
+    fontStyle: "italic",
   },
   playerRow: {
     flexDirection: "row",

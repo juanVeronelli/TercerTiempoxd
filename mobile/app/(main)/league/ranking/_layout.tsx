@@ -9,6 +9,7 @@ export default function RankingStackLayout() {
       {/* Las sub-pantallas */}
       <Stack.Screen name="table" />
       <Stack.Screen name="honors" />
+      <Stack.Screen name="prode-table" />
     </Stack>
   );
 }

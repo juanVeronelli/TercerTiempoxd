@@ -173,6 +173,7 @@ exports.Prisma.League_membersScalarFieldEnum = {
   honors_tronco: 'honors_tronco',
   honors_fantasma: 'honors_fantasma',
   honors_prediction: 'honors_prediction',
+  prode_points_total: 'prode_points_total',
   honors_duel: 'honors_duel'
 };
 

@@ -415,6 +415,47 @@ export const getGeneralRanking = async (req: Request, res: Response) => {
   }
 };
 
+export const getProdeRanking = async (req: Request, res: Response) => {
+  const leagueId = (req.params.leagueId || req.params.id) as string;
+  if (!leagueId || leagueId === "undefined") {
+    return res.status(400).json({ message: "ID de liga inválido" });
+  }
+  try {
+    const members = await prisma.league_members.findMany({
+      where: { league_id: leagueId, is_banned: false },
+      include: {
+        users: {
+          select: {
+            id: true,
+            full_name: true,
+            username: true,
+            profile_photo_url: true,
+            avatar_frame: true,
+            accent_color: true,
+          },
+        },
+      },
+    });
+    const ranking = members
+      .map((m) => ({
+        id: m.users.id,
+        name: m.users.full_name || "Sin nombre",
+        username: m.users.username,
+        photo: m.users.profile_photo_url,
+        avatar_frame: m.users.avatar_frame,
+        accent_color: m.users.accent_color,
+        prode_points_total: Number(m.prode_points_total ?? 0),
+      }))
+      .sort((a, b) => b.prode_points_total - a.prode_points_total);
+    return res.status(200).json(ranking);
+  } catch (error) {
+    console.error("Error en getProdeRanking:", error);
+    return res
+      .status(500)
+      .json({ message: "Error al obtener tabla del prode." });
+  }
+};
+
 export const getHonorsRanking = async (req: Request, res: Response) => {
   // Asegurate de que el parámetro coincida con tu ruta (id o leagueId)
   const leagueId = req.params.leagueId as string;

@@ -5994,6 +5994,7 @@ export namespace Prisma {
     honors_tronco: number | null
     honors_fantasma: number | null
     honors_prediction: number | null
+    prode_points_total: number | null
     honors_duel: number | null
   }
 
@@ -6009,6 +6010,7 @@ export namespace Prisma {
     honors_tronco: number | null
     honors_fantasma: number | null
     honors_prediction: number | null
+    prode_points_total: number | null
     honors_duel: number | null
   }
 
@@ -6029,6 +6031,7 @@ export namespace Prisma {
     honors_tronco: number | null
     honors_fantasma: number | null
     honors_prediction: number | null
+    prode_points_total: number | null
     honors_duel: number | null
   }
 
@@ -6049,6 +6052,7 @@ export namespace Prisma {
     honors_tronco: number | null
     honors_fantasma: number | null
     honors_prediction: number | null
+    prode_points_total: number | null
     honors_duel: number | null
   }
 
@@ -6069,6 +6073,7 @@ export namespace Prisma {
     honors_tronco: number
     honors_fantasma: number
     honors_prediction: number
+    prode_points_total: number
     honors_duel: number
     _all: number
   }
@@ -6086,6 +6091,7 @@ export namespace Prisma {
     honors_tronco?: true
     honors_fantasma?: true
     honors_prediction?: true
+    prode_points_total?: true
     honors_duel?: true
   }
 
@@ -6101,6 +6107,7 @@ export namespace Prisma {
     honors_tronco?: true
     honors_fantasma?: true
     honors_prediction?: true
+    prode_points_total?: true
     honors_duel?: true
   }
 
@@ -6121,6 +6128,7 @@ export namespace Prisma {
     honors_tronco?: true
     honors_fantasma?: true
     honors_prediction?: true
+    prode_points_total?: true
     honors_duel?: true
   }
 
@@ -6141,6 +6149,7 @@ export namespace Prisma {
     honors_tronco?: true
     honors_fantasma?: true
     honors_prediction?: true
+    prode_points_total?: true
     honors_duel?: true
   }
 
@@ -6161,6 +6170,7 @@ export namespace Prisma {
     honors_tronco?: true
     honors_fantasma?: true
     honors_prediction?: true
+    prode_points_total?: true
     honors_duel?: true
     _all?: true
   }
@@ -6268,6 +6278,7 @@ export namespace Prisma {
     honors_tronco: number | null
     honors_fantasma: number | null
     honors_prediction: number | null
+    prode_points_total: number | null
     honors_duel: number | null
     _count: League_membersCountAggregateOutputType | null
     _avg: League_membersAvgAggregateOutputType | null
@@ -6307,6 +6318,7 @@ export namespace Prisma {
     honors_tronco?: boolean
     honors_fantasma?: boolean
     honors_prediction?: boolean
+    prode_points_total?: boolean
     honors_duel?: boolean
     leagues?: boolean | leaguesDefaultArgs<ExtArgs>
     users?: boolean | usersDefaultArgs<ExtArgs>
@@ -6329,6 +6341,7 @@ export namespace Prisma {
     honors_tronco?: boolean
     honors_fantasma?: boolean
     honors_prediction?: boolean
+    prode_points_total?: boolean
     honors_duel?: boolean
     leagues?: boolean | leaguesDefaultArgs<ExtArgs>
     users?: boolean | usersDefaultArgs<ExtArgs>
@@ -6351,6 +6364,7 @@ export namespace Prisma {
     honors_tronco?: boolean
     honors_fantasma?: boolean
     honors_prediction?: boolean
+    prode_points_total?: boolean
     honors_duel?: boolean
     leagues?: boolean | leaguesDefaultArgs<ExtArgs>
     users?: boolean | usersDefaultArgs<ExtArgs>
@@ -6373,10 +6387,11 @@ export namespace Prisma {
     honors_tronco?: boolean
     honors_fantasma?: boolean
     honors_prediction?: boolean
+    prode_points_total?: boolean
     honors_duel?: boolean
   }
 
-  export type league_membersOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"league_id" | "user_id" | "joined_at" | "is_banned" | "role" | "matches_played" | "league_overall" | "avg_technique" | "avg_physical" | "avg_pace" | "avg_defense" | "avg_attack" | "honors_mvp" | "honors_tronco" | "honors_fantasma" | "honors_prediction" | "honors_duel", ExtArgs["result"]["league_members"]>
+  export type league_membersOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"league_id" | "user_id" | "joined_at" | "is_banned" | "role" | "matches_played" | "league_overall" | "avg_technique" | "avg_physical" | "avg_pace" | "avg_defense" | "avg_attack" | "honors_mvp" | "honors_tronco" | "honors_fantasma" | "honors_prediction" | "prode_points_total" | "honors_duel", ExtArgs["result"]["league_members"]>
   export type league_membersInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     leagues?: boolean | leaguesDefaultArgs<ExtArgs>
     users?: boolean | usersDefaultArgs<ExtArgs>
@@ -6413,6 +6428,7 @@ export namespace Prisma {
       honors_tronco: number | null
       honors_fantasma: number | null
       honors_prediction: number | null
+      prode_points_total: number | null
       honors_duel: number | null
     }, ExtArgs["result"]["league_members"]>
     composites: {}
@@ -6855,6 +6871,7 @@ export namespace Prisma {
     readonly honors_tronco: FieldRef<"league_members", 'Int'>
     readonly honors_fantasma: FieldRef<"league_members", 'Int'>
     readonly honors_prediction: FieldRef<"league_members", 'Int'>
+    readonly prode_points_total: FieldRef<"league_members", 'Int'>
     readonly honors_duel: FieldRef<"league_members", 'Int'>
   }
     
@@ -24853,6 +24870,7 @@ export namespace Prisma {
     honors_tronco: 'honors_tronco',
     honors_fantasma: 'honors_fantasma',
     honors_prediction: 'honors_prediction',
+    prode_points_total: 'prode_points_total',
     honors_duel: 'honors_duel'
   };
 
@@ -25529,6 +25547,7 @@ export namespace Prisma {
     honors_tronco?: IntNullableFilter<"league_members"> | number | null
     honors_fantasma?: IntNullableFilter<"league_members"> | number | null
     honors_prediction?: IntNullableFilter<"league_members"> | number | null
+    prode_points_total?: IntNullableFilter<"league_members"> | number | null
     honors_duel?: IntNullableFilter<"league_members"> | number | null
     leagues?: XOR<LeaguesScalarRelationFilter, leaguesWhereInput>
     users?: XOR<UsersScalarRelationFilter, usersWhereInput>
@@ -25551,6 +25570,7 @@ export namespace Prisma {
     honors_tronco?: SortOrderInput | SortOrder
     honors_fantasma?: SortOrderInput | SortOrder
     honors_prediction?: SortOrderInput | SortOrder
+    prode_points_total?: SortOrderInput | SortOrder
     honors_duel?: SortOrderInput | SortOrder
     leagues?: leaguesOrderByWithRelationInput
     users?: usersOrderByWithRelationInput
@@ -25577,6 +25597,7 @@ export namespace Prisma {
     honors_tronco?: IntNullableFilter<"league_members"> | number | null
     honors_fantasma?: IntNullableFilter<"league_members"> | number | null
     honors_prediction?: IntNullableFilter<"league_members"> | number | null
+    prode_points_total?: IntNullableFilter<"league_members"> | number | null
     honors_duel?: IntNullableFilter<"league_members"> | number | null
     leagues?: XOR<LeaguesScalarRelationFilter, leaguesWhereInput>
     users?: XOR<UsersScalarRelationFilter, usersWhereInput>
@@ -25599,6 +25620,7 @@ export namespace Prisma {
     honors_tronco?: SortOrderInput | SortOrder
     honors_fantasma?: SortOrderInput | SortOrder
     honors_prediction?: SortOrderInput | SortOrder
+    prode_points_total?: SortOrderInput | SortOrder
     honors_duel?: SortOrderInput | SortOrder
     _count?: league_membersCountOrderByAggregateInput
     _avg?: league_membersAvgOrderByAggregateInput
@@ -25627,6 +25649,7 @@ export namespace Prisma {
     honors_tronco?: IntNullableWithAggregatesFilter<"league_members"> | number | null
     honors_fantasma?: IntNullableWithAggregatesFilter<"league_members"> | number | null
     honors_prediction?: IntNullableWithAggregatesFilter<"league_members"> | number | null
+    prode_points_total?: IntNullableWithAggregatesFilter<"league_members"> | number | null
     honors_duel?: IntNullableWithAggregatesFilter<"league_members"> | number | null
   }
 
@@ -27151,6 +27174,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
     leagues: leaguesCreateNestedOneWithoutLeague_membersInput
     users: usersCreateNestedOneWithoutLeague_membersInput
@@ -27173,6 +27197,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
   }
 
@@ -27191,6 +27216,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
     leagues?: leaguesUpdateOneRequiredWithoutLeague_membersNestedInput
     users?: usersUpdateOneRequiredWithoutLeague_membersNestedInput
@@ -27213,6 +27239,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -27233,6 +27260,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
   }
 
@@ -27251,6 +27279,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -27271,6 +27300,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -28972,6 +29002,7 @@ export namespace Prisma {
     honors_tronco?: SortOrder
     honors_fantasma?: SortOrder
     honors_prediction?: SortOrder
+    prode_points_total?: SortOrder
     honors_duel?: SortOrder
   }
 
@@ -28987,6 +29018,7 @@ export namespace Prisma {
     honors_tronco?: SortOrder
     honors_fantasma?: SortOrder
     honors_prediction?: SortOrder
+    prode_points_total?: SortOrder
     honors_duel?: SortOrder
   }
 
@@ -29007,6 +29039,7 @@ export namespace Prisma {
     honors_tronco?: SortOrder
     honors_fantasma?: SortOrder
     honors_prediction?: SortOrder
+    prode_points_total?: SortOrder
     honors_duel?: SortOrder
   }
 
@@ -29027,6 +29060,7 @@ export namespace Prisma {
     honors_tronco?: SortOrder
     honors_fantasma?: SortOrder
     honors_prediction?: SortOrder
+    prode_points_total?: SortOrder
     honors_duel?: SortOrder
   }
 
@@ -29042,6 +29076,7 @@ export namespace Prisma {
     honors_tronco?: SortOrder
     honors_fantasma?: SortOrder
     honors_prediction?: SortOrder
+    prode_points_total?: SortOrder
     honors_duel?: SortOrder
   }
 
@@ -32531,6 +32566,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
     leagues: leaguesCreateNestedOneWithoutLeague_membersInput
   }
@@ -32551,6 +32587,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
   }
 
@@ -33090,6 +33127,7 @@ export namespace Prisma {
     honors_tronco?: IntNullableFilter<"league_members"> | number | null
     honors_fantasma?: IntNullableFilter<"league_members"> | number | null
     honors_prediction?: IntNullableFilter<"league_members"> | number | null
+    prode_points_total?: IntNullableFilter<"league_members"> | number | null
     honors_duel?: IntNullableFilter<"league_members"> | number | null
   }
 
@@ -33556,6 +33594,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
     users: usersCreateNestedOneWithoutLeague_membersInput
   }
@@ -33576,6 +33615,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
   }
 
@@ -39165,6 +39205,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
   }
 
@@ -39468,6 +39509,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
     leagues?: leaguesUpdateOneRequiredWithoutLeague_membersNestedInput
   }
@@ -39488,6 +39530,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -39507,6 +39550,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -39931,6 +39975,7 @@ export namespace Prisma {
     honors_tronco?: number | null
     honors_fantasma?: number | null
     honors_prediction?: number | null
+    prode_points_total?: number | null
     honors_duel?: number | null
   }
 
@@ -40003,6 +40048,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
     users?: usersUpdateOneRequiredWithoutLeague_membersNestedInput
   }
@@ -40023,6 +40069,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
   }
 
@@ -40042,6 +40089,7 @@ export namespace Prisma {
     honors_tronco?: NullableIntFieldUpdateOperationsInput | number | null
     honors_fantasma?: NullableIntFieldUpdateOperationsInput | number | null
     honors_prediction?: NullableIntFieldUpdateOperationsInput | number | null
+    prode_points_total?: NullableIntFieldUpdateOperationsInput | number | null
     honors_duel?: NullableIntFieldUpdateOperationsInput | number | null
   }
 

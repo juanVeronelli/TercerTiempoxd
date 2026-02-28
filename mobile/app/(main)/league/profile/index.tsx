@@ -172,6 +172,7 @@ export default function ProfileScreen() {
   );
 
   const unlockedKeysSet = useMemo(() => new Set(userCosmetics), [userCosmetics]);
+  // Gold (PRO) y Color Tema (accent) son siempre mostrados; el resto si tienen cosmeticKey debe estar en userCosmetics
   const availableFrames = useMemo(
     () => AVATAR_FRAMES.filter((f) => !f.cosmeticKey || unlockedKeysSet.has(f.cosmeticKey)),
     [unlockedKeysSet],
@@ -269,6 +270,11 @@ export default function ProfileScreen() {
       fetchData();
     }, [fetchData]),
   );
+
+  // Al abrir el modal de marcos, refrescar cosméticos por si acaba de completar una misión
+  useEffect(() => {
+    if (frameModalVisible) fetchData();
+  }, [frameModalVisible]);
 
   useFocusEffect(
     useCallback(() => {

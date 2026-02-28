@@ -282,6 +282,24 @@ export async function processMatchPredictions(
     }),
   );
 
+  // Acumular puntos de esta fecha en league_members (prode por liga, suma fecha tras fecha)
+  if (leagueId) {
+    await Promise.all(
+      allMatchPlayers.map((mp) => {
+        const points = userPoints[mp.user_id] ?? 0;
+        return tx.league_members.updateMany({
+          where: {
+            league_id: leagueId,
+            user_id: mp.user_id,
+          },
+          data: {
+            prode_points_total: { increment: points },
+          },
+        });
+      }),
+    );
+  }
+
   const entries = Object.entries(userPoints);
   if (entries.length === 0) return;
 

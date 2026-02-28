@@ -284,8 +284,8 @@ export default function VoteScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 40}
       >
         {/* HEADER */}
         <View style={styles.header}>
@@ -403,7 +403,7 @@ export default function VoteScreen() {
             <Text style={styles.sectionSubtitle}>DETALLES TÉCNICOS</Text>
 
             <StatRow
-              label="Ritmo / Físico"
+              label="Velocidad"
               value={currentVote.pace}
               onChange={(v) => updateVote("pace", v)}
               icon="flash"
@@ -415,7 +415,7 @@ export default function VoteScreen() {
               icon="football"
             />
             <StatRow
-              label="Defensa"
+              label="Defensa / Arquero"
               value={currentVote.defense}
               onChange={(v) => updateVote("defense", v)}
               icon="shield"
@@ -455,10 +455,13 @@ export default function VoteScreen() {
             multiline
             value={currentVote.comment}
             onChangeText={(t) => updateVote("comment", t)}
+            onFocus={() => {
+              setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+            }}
           />
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
       {/* FOOTER NAV */}
