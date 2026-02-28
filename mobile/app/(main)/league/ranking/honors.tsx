@@ -18,6 +18,7 @@ import { Skeleton } from "../../../../src/components/ui/Skeleton";
 import ViewShot from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { ShareableHonorsCard } from "../../../../src/components/share/ShareableHonorsCard";
+import { ShareButton } from "../../../../src/components/share/ShareButton";
 import { MedalsInfoButton } from "../../../../src/components/medals/MedalsInfoButton";
 import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
 import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
@@ -385,19 +386,11 @@ export default function HonorsRankingScreen() {
             </View>
           </CoachmarkHighlight>
 
-        <TouchableOpacity
-          style={styles.shareButton}
-          activeOpacity={0.8}
+        <ShareButton
           onPress={handleShare}
-        >
-          <Ionicons
-            name="share-social"
-            size={20}
-            color="black"
-            style={{ marginRight: 10 }}
-          />
-          <Text style={styles.shareButtonText}>COMPARTIR EN REDES</Text>
-        </TouchableOpacity>
+          variant="filled"
+          style={styles.shareButtonWrap}
+        />
         <View style={{ height: 50 }} />
       </ScrollView>
     </SafeAreaView>
@@ -522,19 +515,7 @@ const styles = StyleSheet.create({
     height: 520,
     backgroundColor: Colors.background,
   },
-  shareButton: {
-    backgroundColor: Colors.primary,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 12,
+  shareButtonWrap: {
     marginTop: 10,
-  },
-  shareButtonText: {
-    color: "black",
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.5,
   },
 });

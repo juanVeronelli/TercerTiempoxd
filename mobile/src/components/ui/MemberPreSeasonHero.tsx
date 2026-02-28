@@ -1,15 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Share,
-  ActivityIndicator,
-} from "react-native";
+import { View, Text, StyleSheet, Share, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import apiClient from "../../api/apiClient";
 import { Colors } from "../../constants/Colors";
+import { ShareButton } from "../share/ShareButton";
 
 export type MemberPreSeasonHeroProps = {
   leagueId: string;
@@ -89,14 +83,13 @@ export function MemberPreSeasonHero({
             en cancha.
           </Text>
         </View>
-        <TouchableOpacity
-          style={styles.shareBtn}
+        <ShareButton
           onPress={handleShare}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="share-outline" size={18} color={Colors.heroTealAccent} />
-          <Text style={styles.shareBtnText}>Compartir</Text>
-        </TouchableOpacity>
+          variant="outline"
+          accentColor={Colors.heroTealAccent}
+          shortLabel
+          style={styles.shareBtnWrap}
+        />
       </View>
     </View>
   );
@@ -177,20 +170,8 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: "400",
   },
-  shareBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.heroTealAccent,
-    backgroundColor: "rgba(34, 211, 238, 0.15)",
-  },
-  shareBtnText: {
-    color: Colors.heroTealAccent,
-    fontSize: 11,
-    fontWeight: "700",
+  shareBtnWrap: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
 });

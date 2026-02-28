@@ -659,10 +659,11 @@ async function applyCosmetic(
   isPro: boolean,
   tx: DbClient,
 ): Promise<void> {
-  if (!isPro) return; // Cosméticos solo para usuarios PRO
   const key = rewardValue?.cosmetic_key ?? rewardValue;
-  const type = rewardValue?.cosmetic_type ?? "FRAME";
+  const type = (rewardValue?.cosmetic_type ?? "FRAME") as string;
   if (!key || typeof key !== "string") return;
+  // PRO recibe todos los cosméticos; usuarios FREE solo reciben tipo SHOWCASE (slots de vitrina)
+  if (!isPro && type !== "SHOWCASE") return;
   await tx.user_cosmetics.upsert({
     where: {
       user_id_cosmetic_key: { user_id: userId, cosmetic_key: key },
@@ -756,8 +757,8 @@ export async function checkMatchAchievements(
 
     if (ach.reward_type === "STAT_BOOST") {
       await applyStatBoost(userId, matchData.leagueId, rewardVal as Record<string, number>, db);
-    } else if (ach.reward_type === "COSMETIC" && isPro) {
-      await applyCosmetic(userId, ach.id, rewardVal, true, db);
+    } else if (ach.reward_type === "COSMETIC") {
+      await applyCosmetic(userId, ach.id, rewardVal, isPro, db);
     }
 
     completed.push(ach.title);

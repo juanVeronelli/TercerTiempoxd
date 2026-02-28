@@ -8,6 +8,7 @@ type ProfileShowcaseSectionProps = {
   isPro: boolean;
   showcaseSelection: string[];
   showcaseOptions: ShowcaseOptionPreset[];
+  availableShowcaseOptions?: ShowcaseOptionPreset[];
   getShowcaseValue: (id: string) => string | number;
   activeAccent: string;
   onEditShowcase: () => void;
@@ -18,16 +19,21 @@ export function ProfileShowcaseSection({
   isPro,
   showcaseSelection,
   showcaseOptions,
+  availableShowcaseOptions = [],
   getShowcaseValue,
   activeAccent,
   onEditShowcase,
   onUnlockPro,
 }: ProfileShowcaseSectionProps) {
+  const unlockedCount = availableShowcaseOptions.length;
+  const totalCount = showcaseOptions.length;
+  const hasLocked = totalCount > unlockedCount;
+
   return (
     <>
       <View style={styles.showcaseHeaderRow}>
         <Text style={styles.sectionHeader}>VITRINA DE JUGADOR</Text>
-        {isPro && (
+        {(isPro || unlockedCount > 0) && (
           <TouchableOpacity
             onPress={onEditShowcase}
             style={[
@@ -41,8 +47,14 @@ export function ProfileShowcaseSection({
         )}
       </View>
 
-      {isPro ? (
-        <View style={styles.showcaseContainer}>
+      {isPro || unlockedCount > 0 ? (
+        <View>
+          {hasLocked && (
+            <Text style={styles.unlockedHint}>
+              {unlockedCount} de {totalCount} opciones desbloqueadas · Completá misiones para más
+            </Text>
+          )}
+          <View style={styles.showcaseContainer}>
           {showcaseSelection.map((itemId) => {
             const itemConfig = showcaseOptions.find((opt) => opt.id === itemId);
             if (!itemConfig) return null;
@@ -62,6 +74,7 @@ export function ProfileShowcaseSection({
               </View>
             );
           })}
+          </View>
         </View>
       ) : (
         <TouchableOpacity style={styles.proUnlockCard} activeOpacity={0.9} onPress={onUnlockPro}>
@@ -94,6 +107,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 1,
     textTransform: "uppercase",
+  },
+  unlockedHint: {
+    color: "#9CA3AF",
+    fontSize: 10,
+    fontWeight: "600",
+    marginBottom: 10,
   },
   editShowcaseBtn: {
     flexDirection: "row",

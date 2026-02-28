@@ -8,8 +8,6 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../constants/Colors";
 import { formatPositionForDisplay } from "../../constants/Positions";
 import { UserAvatar } from "../ui/UserAvatar";
 
@@ -63,127 +61,115 @@ export function ShareableProfileCard({
   showcaseItems = [],
 }: ShareableProfileCardProps) {
   const displayName = (name || "Usuario").trim();
-  const iconName = (icon: string) =>
-    ICON_MAP[icon] ?? "soccer";
+  const iconName = (icon: string) => ICON_MAP[icon] ?? "soccer";
 
   return (
-    <View style={[styles.shadowWrap, { width: CARD_WIDTH, height: CARD_HEIGHT }]}>
-      <View style={styles.card}>
-        <LinearGradient
-          colors={["#1F2937", "#0F172A", "#020617"]}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFill}
-        />
+    <View style={[styles.root, { width: CARD_WIDTH, height: CARD_HEIGHT }]}>
+      <LinearGradient
+        colors={["#0c1222", "#070b14", "#050810"]}
+        locations={[0, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.inner}>
+        {/* Accent bar — uses user accent color */}
+        <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
 
-        <View style={styles.inner}>
-          {/* Banner */}
-          <View style={styles.bannerContainer}>
-            {bannerSource ? (
-              <Image
-                source={bannerSource}
-                style={styles.bannerImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.defaultBanner}>
-                <Ionicons
-                  name="image-outline"
-                  size={36}
-                  color="rgba(255,255,255,0.1)"
-                />
-              </View>
-            )}
-            {isPro && (
-              <View style={styles.proBadge}>
-                <Text style={styles.proText}>PRO</Text>
-              </View>
-            )}
-          </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <Image source={LOGO_SOURCE} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.brand}>Tercer Tiempo</Text>
+        </View>
 
-          {/* Avatar con marco + nombre (solapado al banner) */}
-          <View style={styles.profileInfo}>
-            <View
-              style={[
-                styles.avatarFrame,
-                !frameSource && {
-                  borderColor: frameColor,
-                  borderWidth: frameWidth,
-                },
-              ]}
-            >
-              <UserAvatar
-                imageUrl={photoUrl}
-                name={displayName}
-                size={100}
-              />
-              {frameSource ? (
-                <Image
-                  source={frameSource}
-                  style={styles.avatarFrameOverlay}
-                  resizeMode="contain"
-                />
-              ) : null}
-            </View>
-
-            <Text style={styles.userName} numberOfLines={2}>
-              {displayName}
-            </Text>
-            <Text style={styles.userHandle}>@{username || "usuario"}</Text>
-            <View
-              style={[
-                styles.positionBadge,
-                {
-                  borderColor: accentColor + "50",
-                  backgroundColor: accentColor + "18",
-                },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="soccer-field"
-                size={12}
-                color={accentColor}
-                style={{ marginRight: 4 }}
-              />
-              <Text style={[styles.positionText, { color: accentColor }]}>
-                {formatPositionForDisplay(mainPosition)}
-              </Text>
-            </View>
-          </View>
-
-          {/* Vitrina - glassBox estilo widget */}
-          {showcaseItems.length > 0 && (
-            <View style={[styles.glassBox, styles.showcaseBlock]}>
-              <Text style={styles.showcaseTitle}>🏆 VITRINA DE JUGADOR</Text>
-              <View style={styles.showcaseRow}>
-                {showcaseItems.slice(0, 3).map((item) => (
-                  <View key={item.id} style={styles.showcaseSlot}>
-                    <View
-                      style={[
-                        styles.showcaseIconBox,
-                        { borderColor: item.color },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={iconName(item.icon) as any}
-                        size={20}
-                        color={item.color}
-                      />
-                    </View>
-                    <Text style={styles.showcaseValue}>{item.value}</Text>
-                    <Text style={styles.showcaseLabel} numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+        {/* Banner */}
+        <View style={styles.bannerWrap}>
+          {bannerSource ? (
+            <Image
+              source={bannerSource}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.defaultBanner}>
+              <View style={styles.bannerPlaceholder} />
             </View>
           )}
+          {isPro && (
+            <View style={styles.proBadge}>
+              <Text style={styles.proText}>PRO</Text>
+            </View>
+          )}
+        </View>
 
-          {/* Branding + footer */}
-          <View style={styles.footer}>
-            <Image source={LOGO_SOURCE} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.footerSub}>tercertiempoxd</Text>
+        {/* Profile: avatar + name + position */}
+        <View style={styles.profileBlock}>
+          <View
+            style={[
+              styles.avatarWrap,
+              !frameSource && {
+                borderColor: accentColor,
+                borderWidth: frameWidth,
+              },
+            ]}
+          >
+            <UserAvatar
+              imageUrl={photoUrl}
+              name={displayName}
+              size={88}
+            />
+            {frameSource ? (
+              <Image
+                source={frameSource}
+                style={styles.avatarFrameOverlay}
+                resizeMode="contain"
+              />
+            ) : null}
           </View>
+          <Text style={styles.userName} numberOfLines={2}>
+            {displayName}
+          </Text>
+          <Text style={styles.userHandle}>@{username || "usuario"}</Text>
+          <View style={[styles.positionBadge, { borderColor: accentColor + "60", backgroundColor: accentColor + "18" }]}>
+            <MaterialCommunityIcons
+              name="soccer-field"
+              size={11}
+              color={accentColor}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.positionText, { color: accentColor }]}>
+              {formatPositionForDisplay(mainPosition)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Showcase */}
+        {showcaseItems.length > 0 && (
+          <View style={styles.showcase}>
+            <View style={styles.showcaseHeader}>
+              <MaterialCommunityIcons name="trophy" size={12} color="rgba(255,255,255,0.6)" />
+              <Text style={styles.showcaseTitle}>Vitrina</Text>
+            </View>
+            <View style={styles.showcaseRow}>
+              {showcaseItems.slice(0, 3).map((item) => (
+                <View key={item.id} style={styles.showcaseSlot}>
+                  <View style={[styles.showcaseIconWrap, { borderColor: item.color + "50" }]}>
+                    <MaterialCommunityIcons
+                      name={iconName(item.icon) as any}
+                      size={18}
+                      color={item.color}
+                    />
+                  </View>
+                  <Text style={styles.showcaseValue}>{item.value}</Text>
+                  <Text style={styles.showcaseLabel} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>tercertiempoxd</Text>
         </View>
       </View>
     </View>
@@ -191,83 +177,106 @@ export function ShareableProfileCard({
 }
 
 const styles = StyleSheet.create({
-  shadowWrap: {
-    borderRadius: 32,
-    shadowColor: "#000",
-    shadowOpacity: 0.65,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 18,
-    backgroundColor: "#1F2937",
-  },
-  card: {
-    flex: 1,
-    borderRadius: 32,
+  root: {
+    borderRadius: 20,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "#1F2937",
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#0c1222",
   },
   inner: {
     flex: 1,
     overflow: "hidden",
   },
-  bannerContainer: {
-    height: 100,
-    backgroundColor: "#111827",
+  accentBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    opacity: 0.9,
+    zIndex: 2,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  logo: { width: 26, height: 26, opacity: 0.95 },
+  brand: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  bannerWrap: {
+    height: 72,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    marginHorizontal: 18,
+    borderRadius: 10,
+    overflow: "hidden",
   },
   bannerImage: { width: "100%", height: "100%" },
   defaultBanner: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#020617",
+  },
+  bannerPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
   proBadge: {
     position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: "#F59E0B",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
+    backgroundColor: "#EAB308",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
-  proText: { fontSize: 9, fontWeight: "900", color: "black" },
+  proText: { fontSize: 9, fontWeight: "800", color: "#0c1222" },
 
-  profileInfo: {
+  profileBlock: {
     alignItems: "center",
-    marginTop: -40,
-    paddingHorizontal: 20,
-    paddingBottom: 12,
+    marginTop: -32,
+    paddingHorizontal: 22,
+    paddingBottom: 14,
   },
-  avatarFrame: {
-    width: 170,
-    height: 170,
-    borderRadius: 54,
+  avatarWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-    marginBottom: 12,
+    marginBottom: 10,
+    backgroundColor: "rgba(15,23,42,0.8)",
   },
   avatarFrameOverlay: {
     position: "absolute",
-    width: 170,
-    height: 170,
-    borderRadius: 54,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   userName: {
-    color: "white",
+    color: "rgba(255,255,255,0.98)",
     fontSize: 18,
-    fontWeight: "900",
-    fontStyle: "italic",
-    marginBottom: 2,
+    fontWeight: "800",
     textAlign: "center",
+    letterSpacing: 0.2,
   },
   userHandle: {
-    color: "rgba(148,163,184,0.9)",
-    fontSize: 12,
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 11,
     fontWeight: "600",
-    marginBottom: 10,
+    marginTop: 2,
+    marginBottom: 8,
     textAlign: "center",
   },
   positionBadge: {
@@ -275,31 +284,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
   },
   positionText: {
     fontSize: 10,
     fontWeight: "800",
+    letterSpacing: 0.5,
     textTransform: "uppercase",
   },
 
-  glassBox: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+  showcase: {
+    marginHorizontal: 18,
+    backgroundColor: "rgba(255,255,255,0.03)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    borderRadius: 16,
-    padding: 12,
-    marginHorizontal: 20,
+    borderColor: "rgba(255,255,255,0.06)",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
   },
-  showcaseBlock: { marginBottom: 12 },
+  showcaseHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
   showcaseTitle: {
-    color: "rgba(248,250,252,0.95)",
-    fontSize: 11,
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 10,
     fontWeight: "800",
-    letterSpacing: 0.5,
-    marginBottom: 10,
-    textAlign: "center",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
   showcaseRow: {
     flexDirection: "row",
@@ -310,42 +328,44 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
   },
-  showcaseIconBox: {
-    width: 38,
-    height: 38,
+  showcaseIconWrap: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
     borderWidth: 1,
-    backgroundColor: "rgba(15,23,42,0.5)",
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
   showcaseValue: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "900",
+    color: "rgba(255,255,255,0.95)",
+    fontSize: 15,
+    fontWeight: "800",
     marginBottom: 2,
   },
   showcaseLabel: {
-    color: "rgba(148,163,184,0.9)",
+    color: "rgba(255,255,255,0.5)",
     fontSize: 8,
     fontWeight: "700",
     textTransform: "uppercase",
     textAlign: "center",
+    letterSpacing: 0.3,
   },
 
   footer: {
     alignItems: "center",
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 14,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.06)",
+    marginHorizontal: 18,
   },
-  logo: { width: 48, height: 48, opacity: 0.9 },
-  footerSub: {
-    marginTop: 4,
-    color: "rgba(255,255,255,0.55)",
-    fontSize: 10,
+  footerText: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 9,
     fontWeight: "600",
-    letterSpacing: 0.3,
+    letterSpacing: 0.8,
     textTransform: "lowercase",
   },
 });

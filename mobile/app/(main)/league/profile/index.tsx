@@ -368,6 +368,11 @@ export default function ProfileScreen() {
     [showcaseSelection, showAlert],
   );
 
+  const handleOpenShowcaseModal = useCallback(async () => {
+    await fetchData();
+    setShowcaseModalVisible(true);
+  }, [fetchData]);
+
   const getShowcaseValue = useCallback(
     (id: string) => {
       if (!careerStats || !trophyCase) return "-";
@@ -814,9 +819,10 @@ export default function ProfileScreen() {
               isPro={isPro}
               showcaseSelection={showcaseSelection}
               showcaseOptions={SHOWCASE_OPTIONS}
+              availableShowcaseOptions={availableShowcaseOptions}
               getShowcaseValue={getShowcaseValue}
               activeAccent={activeAccent}
-              onEditShowcase={() => setShowcaseModalVisible(true)}
+              onEditShowcase={handleOpenShowcaseModal}
               onUnlockPro={() => router.push("/(main)/paywall")}
             />
           </CoachmarkHighlight>

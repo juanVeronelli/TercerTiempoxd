@@ -1,6 +1,6 @@
 import React from "react";
-import { TouchableOpacity, Text, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { StyleSheet } from "react-native";
+import { ShareButton } from "../share/ShareButton";
 
 type ShareProfileButtonProps = {
   accentColor: string;
@@ -9,30 +9,17 @@ type ShareProfileButtonProps = {
 
 export function ShareProfileButton({ accentColor, onShare }: ShareProfileButtonProps) {
   return (
-    <TouchableOpacity
-      style={[styles.button, { backgroundColor: accentColor }]}
+    <ShareButton
       onPress={onShare}
-      activeOpacity={0.8}
-    >
-      <Ionicons name="share-social" size={20} color="black" style={{ marginRight: 10 }} />
-      <Text style={styles.buttonText}>COMPARTIR EN REDES</Text>
-    </TouchableOpacity>
+      variant="filled"
+      accentColor={accentColor}
+      style={styles.wrapper}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 12,
+  wrapper: {
     marginBottom: 20,
-  },
-  buttonText: {
-    color: "black",
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.5,
   },
 });
