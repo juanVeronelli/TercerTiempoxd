@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -107,6 +108,7 @@ export default function MatchResultsScreen() {
     }>;
     totalPoints: number;
   } | null>(null);
+  const [showPredictionsModal, setShowPredictionsModal] = useState(false);
 
   const { shouldShow: showResultsCoachmark, markSeen: markResultsCoachmark } =
     useCoachmark(CoachmarkKeys.RESULTS);
@@ -762,63 +764,94 @@ export default function MatchResultsScreen() {
           </CoachmarkHighlight>
         </View>
 
-        <View style={styles.sectionHeaderBox}>
-          <Text style={styles.sectionHeader}>MIS PREDICCIONES</Text>
-        </View>
-        <View style={styles.myPredictionsCard}>
-          {predictionsResult === null ? (
-            <View style={styles.predictionDetailEmpty}>
-              <Text style={styles.emptyText}>Cargando...</Text>
-            </View>
-          ) : predictionsResult.questions.length === 0 ? (
-            <View style={styles.predictionDetailEmpty}>
-              <Text style={styles.emptyText}>
-                No participaste en el prode de esta fecha o aún no se resolvieron las predicciones.
+        {predictionsResult != null &&
+          predictionsResult.questions.some((q) => q.user_option_label != null) && (
+          <>
+            <TouchableOpacity
+              style={styles.myPredictionsButton}
+              onPress={() => setShowPredictionsModal(true)}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="crystal-ball" size={20} color="#22D3EE" />
+              <Text style={styles.myPredictionsButtonText}>Ver mis predicciones</Text>
+              <Text style={styles.myPredictionsButtonSubtext}>
+                {predictionsResult.questions.filter((q) => q.user_option_label != null).length}{" "}
+                respuesta(s) · {predictionsResult.totalPoints} pts
               </Text>
-            </View>
-          ) : (
-            <>
-              {predictionsResult.questions.map((q) => (
-                <View key={q.question_id} style={styles.predictionDetailRow}>
-                  <View style={styles.predictionDetailQuestion}>
-                    <Text style={styles.predictionDetailLabel}>{q.question_label}</Text>
-                    <View style={styles.predictionDetailAnswers}>
-                      <Text style={styles.predictionDetailYour}>
-                        Tu respuesta: {q.user_option_label ?? "—"}
-                      </Text>
-                      {q.correct_option_label != null && (
-                        <Text style={styles.predictionDetailCorrect}>
-                          Correcto: {q.correct_option_label}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.predictionDetailRight}>
-                    {q.correct ? (
-                      <Ionicons name="checkmark-circle" size={22} color="#10B981" />
-                    ) : (
-                      <Ionicons name="close-circle" size={22} color="#EF4444" />
-                    )}
-                    <Text
-                      style={[
-                        styles.predictionDetailPts,
-                        q.correct && { color: "#10B981" },
-                      ]}
+              <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+            </TouchableOpacity>
+
+            <Modal
+              visible={showPredictionsModal}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setShowPredictionsModal(false)}
+            >
+              <View style={styles.predictionsModalOverlay}>
+                <TouchableOpacity
+                  style={StyleSheet.absoluteFill}
+                  activeOpacity={1}
+                  onPress={() => setShowPredictionsModal(false)}
+                />
+                <View style={styles.predictionsModalContent}>
+                  <View style={styles.predictionsModalHandle} />
+                  <View style={styles.predictionsModalHeader}>
+                    <Text style={styles.predictionsModalTitle}>Mis predicciones</Text>
+                    <TouchableOpacity
+                      onPress={() => setShowPredictionsModal(false)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
-                      +{q.points_earned}
-                    </Text>
+                      <Ionicons name="close" size={28} color="#9CA3AF" />
+                    </TouchableOpacity>
                   </View>
+                  <ScrollView
+                    style={styles.predictionsModalScroll}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {predictionsResult.questions
+                      .filter((q) => q.user_option_label != null)
+                      .map((q) => (
+                        <View key={q.question_id} style={styles.predictionDetailRow}>
+                          <View style={styles.predictionDetailQuestion}>
+                            <Text style={styles.predictionDetailLabel}>{q.question_label}</Text>
+                            <Text style={styles.predictionDetailYour}>
+                              Tu respuesta: {q.user_option_label}
+                            </Text>
+                            {q.correct_option_label != null && (
+                              <Text style={styles.predictionDetailCorrect}>
+                                Correcto: {q.correct_option_label}
+                              </Text>
+                            )}
+                          </View>
+                          <View style={styles.predictionDetailRight}>
+                            {q.correct ? (
+                              <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                            ) : (
+                              <Ionicons name="close-circle" size={24} color="#EF4444" />
+                            )}
+                            <Text
+                              style={[
+                                styles.predictionDetailPts,
+                                q.correct && { color: "#10B981" },
+                              ]}
+                            >
+                              +{q.points_earned}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    <View style={styles.predictionDetailTotal}>
+                      <Text style={styles.predictionDetailTotalLabel}>Total esta fecha</Text>
+                      <Text style={styles.predictionDetailTotalValue}>
+                        {predictionsResult.totalPoints} pts
+                      </Text>
+                    </View>
+                  </ScrollView>
                 </View>
-              ))}
-              <View style={styles.predictionDetailTotal}>
-                <Text style={styles.predictionDetailTotalLabel}>Total esta fecha</Text>
-                <Text style={styles.predictionDetailTotalValue}>
-                  {predictionsResult.totalPoints} pts
-                </Text>
               </View>
-            </>
-          )}
-        </View>
+            </Modal>
+          </>
+        )}
 
         <View
           onLayout={(e) => {
@@ -853,20 +886,89 @@ export default function MatchResultsScreen() {
 
         <View style={styles.lockerContainer}>
           {comments.length > 0 ? (
-            comments.map((c, idx) => (
-              <View key={idx} style={styles.commentRow}>
-                <View style={styles.commentBar} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.commentHeader}>
-                    SOBRE{" "}
-                    <Text style={{ color: "white" }}>
-                      {c.target_name.toUpperCase()}
-                    </Text>
-                  </Text>
-                  <Text style={styles.commentBody}>"{c.comment}"</Text>
-                </View>
-              </View>
-            ))
+            (() => {
+              const isProLocker =
+                (matchData?.userPlanType ?? "FREE").toUpperCase() === "PRO";
+              const byTarget = comments.reduce<
+                Record<string, { target_name: string; comment: string; author_name?: string }[]>
+              >(
+                (acc, c) => {
+                  const name = c.target_name || "Sin nombre";
+                  if (!acc[name]) acc[name] = [];
+                  acc[name].push({
+                    target_name: c.target_name,
+                    comment: c.comment,
+                    author_name: (c as any).author_name,
+                  });
+                  return acc;
+                },
+                {},
+              );
+              const order = [...new Set(comments.map((c) => c.target_name || "Sin nombre"))];
+              return (
+                <>
+                  {!isProLocker && (
+                    <TouchableOpacity
+                      style={styles.lockerProCard}
+                      onPress={() => router.push("/(main)/paywall")}
+                      activeOpacity={0.9}
+                    >
+                      <Ionicons name="lock-closed" size={22} color={THEME.gold} />
+                      <View style={styles.lockerProCardText}>
+                        <Text style={styles.lockerProCardTitle}>
+                          Desbloquea con PRO
+                        </Text>
+                        <Text style={styles.lockerProCardSubtitle}>
+                          Ver quién dijo cada comentario
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+                    </TouchableOpacity>
+                  )}
+                  {order.map((targetName) => (
+                    <View key={targetName} style={styles.commentGroup}>
+                      <Text style={styles.commentGroupHeader}>
+                        SOBRE {String(targetName).toUpperCase()}
+                      </Text>
+                      {(byTarget[targetName] ?? []).map((c, idx) => (
+                        <View key={idx} style={styles.commentRow}>
+                          <View style={styles.commentBar} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.commentBody}>"{c.comment}"</Text>
+                            {c.author_name != null && c.author_name !== "" && (
+                              <View
+                                style={[
+                                  styles.commentAuthorWrap,
+                                  !isProLocker && styles.commentAuthorBlur,
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.commentAuthor,
+                                    !isProLocker && styles.commentAuthorBlurText,
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  — {c.author_name}
+                                </Text>
+                                {!isProLocker && (
+                                  <Ionicons
+                                    name="lock-closed"
+                                    size={12}
+                                    color="#6B7280"
+                                    style={{ marginLeft: 6 }}
+                                  />
+                                )}
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </>
+              );
+            })()
           ) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Silencio en el vestuario.</Text>
@@ -1266,16 +1368,63 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontStyle: "italic",
   },
-  myPredictionsCard: {
+  myPredictionsButton: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: THEME.cardBg,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 25,
+    marginBottom: 20,
     borderWidth: 1,
     borderColor: THEME.borderColor,
   },
-  predictionDetailEmpty: {
-    paddingVertical: 12,
+  myPredictionsButtonText: {
+    flex: 1,
+    marginLeft: 12,
+    color: THEME.textPrimary,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  myPredictionsButtonSubtext: {
+    color: THEME.textSecondary,
+    fontSize: 12,
+    marginRight: 8,
+  },
+  predictionsModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  predictionsModalContent: {
+    backgroundColor: THEME.cardBg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    maxHeight: "75%",
+  },
+  predictionsModalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#4B5563",
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  predictionsModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  predictionsModalTitle: {
+    color: THEME.textPrimary,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  predictionsModalScroll: {
+    maxHeight: 400,
   },
   predictionDetailRow: {
     flexDirection: "row",
@@ -1387,6 +1536,37 @@ const styles = StyleSheet.create({
   },
   ratingText: { color: "white", fontWeight: "bold", fontSize: 13 },
   lockerContainer: { marginBottom: 20 },
+  lockerProCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.12)",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.35)",
+  },
+  lockerProCardText: { flex: 1, marginLeft: 12 },
+  lockerProCardTitle: {
+    color: THEME.gold,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  lockerProCardSubtitle: {
+    color: THEME.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  commentGroup: {
+    marginBottom: 20,
+  },
+  commentGroupHeader: {
+    color: THEME.gold,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
   commentRow: {
     flexDirection: "row",
     marginBottom: 12,
@@ -1411,6 +1591,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: "italic",
     lineHeight: 18,
+  },
+  commentAuthorWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  commentAuthor: {
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  commentAuthorBlur: {
+    opacity: 0.45,
+  },
+  commentAuthorBlurText: {
+    color: "#6B7280",
   },
   emptyState: {
     padding: 20,

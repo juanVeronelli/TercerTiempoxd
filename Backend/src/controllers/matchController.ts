@@ -368,9 +368,13 @@ export const getMatchDetails = async (req: Request, res: Response) => {
         const target = match.match_players.find(
           (mp) => mp.user_id === v.target_id,
         );
+        const voter = match.match_players.find(
+          (mp) => mp.user_id === v.voter_id,
+        );
         return {
           comment: v.comment,
           target_name: target?.users.full_name || "Jugador",
+          author_name: voter?.users?.full_name || voter?.users?.username || "Anónimo",
         };
       });
 
