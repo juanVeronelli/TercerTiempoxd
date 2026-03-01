@@ -171,8 +171,17 @@ export default function ProfileScreen() {
     [],
   );
 
-  const unlockedKeysSet = useMemo(() => new Set(userCosmetics), [userCosmetics]);
-  // Gold (PRO) y Color Tema (accent) son siempre mostrados; el resto si tienen cosmeticKey debe estar en userCosmetics
+  // Incluir cosméticos de la tabla user_cosmetics + los de logros completados (por si no se escribió la fila, ej. usuario FREE al completar)
+  const unlockedKeysSet = useMemo(() => {
+    const set = new Set<string>(userCosmetics);
+    (achievements || []).forEach((a: { reward_type?: string; reward_value?: { cosmetic_key?: string }; user_achievement?: { is_completed?: boolean } }) => {
+      if (a.user_achievement?.is_completed && a.reward_type === "COSMETIC" && a.reward_value?.cosmetic_key) {
+        set.add(a.reward_value.cosmetic_key);
+      }
+    });
+    return set;
+  }, [userCosmetics, achievements]);
+  // Gold (PRO) y Color Tema (accent) son siempre mostrados; el resto si tienen cosmeticKey debe estar en unlockedKeysSet
   const availableFrames = useMemo(
     () => AVATAR_FRAMES.filter((f) => !f.cosmeticKey || unlockedKeysSet.has(f.cosmeticKey)),
     [unlockedKeysSet],

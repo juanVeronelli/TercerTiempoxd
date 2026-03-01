@@ -315,6 +315,25 @@ export const updateProfileData = async (req: Request, res: Response) => {
         select: { cosmetic_key: true },
       });
       const unlockedKeys = new Set(userCosmeticsList.map((c) => c.cosmetic_key));
+
+      // Si falta un cosmético en user_cosmetics, comprobar si lo desbloqueó por logro completado (backfill implícito)
+      const completedAchievementCosmetics = await prisma.user_achievements.findMany({
+        where: {
+          user_id: userId,
+          is_completed: true,
+          achievements: { reward_type: "COSMETIC" },
+        },
+        select: {
+          achievements: {
+            select: { reward_value: true },
+          },
+        },
+      });
+      for (const ua of completedAchievementCosmetics) {
+        const rv = ua.achievements?.reward_value as { cosmetic_key?: string } | null;
+        if (rv?.cosmetic_key) unlockedKeys.add(rv.cosmetic_key);
+      }
+
       for (const itemId of items) {
         if (allowedShowcase.includes(itemId)) continue;
         const requiredKey = showcaseToCosmetic[itemId];
@@ -475,7 +494,30 @@ export const getGlobalProfile = async (req: Request, res: Response) => {
         where: { user_id: targetUserId },
         select: { cosmetic_key: true, cosmetic_type: true },
       });
-      userCosmetics = cosmetics;
+      const byKey = new Map(cosmetics.map((c) => [c.cosmetic_key, c]));
+      // Incluir cosméticos de logros completados por si no están en user_cosmetics (ej. desbloqueados siendo FREE)
+      const fromAchievements = await prisma.user_achievements.findMany({
+        where: {
+          user_id: targetUserId,
+          is_completed: true,
+          achievements: { reward_type: "COSMETIC" },
+        },
+        select: {
+          achievements: {
+            select: { reward_value: true },
+          },
+        },
+      });
+      for (const ua of fromAchievements) {
+        const rv = ua.achievements?.reward_value as { cosmetic_key?: string; cosmetic_type?: string } | null;
+        if (rv?.cosmetic_key && !byKey.has(rv.cosmetic_key)) {
+          byKey.set(rv.cosmetic_key, {
+            cosmetic_key: rv.cosmetic_key,
+            cosmetic_type: rv.cosmetic_type ?? "SHOWCASE",
+          });
+        }
+      }
+      userCosmetics = Array.from(byKey.values());
     }
 
     const matchesFormatted = recentMatches.map((record) => ({
