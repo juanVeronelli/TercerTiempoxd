@@ -1,0 +1,75 @@
+# ============================================
+# Datos sensibles
+# ============================================
+.env
+.env.*
+!.env.example
+!.env.docker.example
+*.pem
+*.key
+*.p12
+*.p8
+*.jks
+*.mobileprovision
+*.keystore
+secrets/
+credentials/
+
+# ============================================
+# Dependencias
+# ============================================
+node_modules/
+
+# ============================================
+# Backend
+# ============================================
+Backend/dist/
+Backend/node_modules/
+Backend/.env
+Backend/generated/
+Backend/prisma/generated/
+
+# ============================================
+# Mobile (Expo / React Native)
+# ============================================
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+mobile/.metro-health-check*
+mobile/ios/
+mobile/android/
+*.orig.*
+
+# ============================================
+# Build, logs y caché
+# ============================================
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.npm
+.yarn/
+.cache/
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# ============================================
+# IDE y sistema
+# ============================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-*
+
+# ============================================
+# EAS / Expo (build artifacts)
+# ============================================
+*.apk
+*.aab
+*.ipa

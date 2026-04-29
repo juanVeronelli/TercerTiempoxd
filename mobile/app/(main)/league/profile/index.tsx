@@ -1,0 +1,1104 @@
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import {
+  View,
+  ScrollView,
+  TouchableOpacity,
+  RefreshControl,
+  StatusBar,
+  Linking,
+  StyleSheet,
+  Text,
+} from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
+import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
+import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
+import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import ViewShot from "react-native-view-shot";
+import * as SecureStore from "expo-secure-store";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
+
+// Límites para subida de foto de perfil
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
+
+import { useCustomAlert } from "../../../../src/context/AlertContext";
+import { useLeagueContext } from "../../../../src/context/LeagueContext";
+import { Colors } from "../../../../src/constants/Colors";
+import apiClient, { getApiBaseUrl } from "../../../../src/api/apiClient";
+import { formatUserFacingError } from "../../../../src/api/apiErrors";
+import { ScreenHeader } from "../../../../src/components/ui/ScreenHeader";
+import { NativeAdCardWrapper } from "../../../../src/components/ads/NativeAdCardWrapper";
+import { ShareableProfileCard } from "../../../../src/components/share/ShareableProfileCard";
+import { openSubscriptionManagement } from "../../../../src/services/SubscriptionUI";
+import { ActivityHeatmap } from "../../../../src/components/stats/ActivityHeatmap";
+import { IconButton } from "../../../../src/components/ui/IconButton";
+
+import { formatPositionForDisplay } from "../../../../src/constants/Positions";
+import {
+  PROFILE_THEME,
+  PRESET_BANNERS,
+  AVATAR_FRAMES,
+  ACCENT_COLORS,
+  SHOWCASE_OPTIONS,
+  LEGAL_URLS,
+  ProfileHeaderCard,
+  ShareProfileButton,
+  ProfileShowcaseSection,
+  ProfileRecentMatches,
+  ProfileLoadingSkeleton,
+  ProfileSettingsModal,
+  ProfileEditModal,
+  ProfileChangePasswordModal,
+  ProfileShowcaseModal,
+  ProfileBannerModal,
+  ProfileFrameModal,
+  ProfileAccentModal,
+} from "../../../../src/components/profile";
+import type { AvatarFramePreset } from "../../../../src/components/profile/profileConstants";
+
+const PROFILE_COACHMARK_STEPS = [
+  {
+    title: "Tu perfil",
+    body: "Acá ves tu foto, nombre y datos. Podés editarlos desde Ajustes (ícono de arriba a la derecha).",
+  },
+  {
+    title: "Compartir",
+    body: "Compartí tu tarjeta de perfil con tu equipo o en redes.",
+  },
+  {
+    title: "Vitrina",
+    body: "Elegí hasta 3 estadísticas para destacar en tu perfil. Los PRO pueden desbloquear más.",
+  },
+  {
+    title: "Logros y medallas",
+    body: "Tus logros desbloqueados y el medallero.",
+  },
+  {
+    title: "Partidos recientes",
+    body: "Tu historial de partidos y puntajes. Tocá uno para ver el detalle.",
+  },
+];
+
+const SCROLL_OFFSET_PADDING = 100;
+const SCROLL_THEN_STEP_MS = 480;
+
+export default function ProfileScreen() {
+  const router = useRouter();
+  const { showAlert } = useCustomAlert();
+  const leagueContext = useLeagueContext();
+  const leagueId = leagueContext?.leagueId ?? null;
+  const fromSelector = !leagueId;
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const [user, setUser] = useState<any>(null);
+  const [careerStats, setCareerStats] = useState<any>(null);
+  const [trophyCase, setTrophyCase] = useState<any>(null);
+  const [recentMatches, setRecentMatches] = useState<any[]>([]);
+  const [activityDates, setActivityDates] = useState<string[]>([]);
+
+  const [showcaseSelection, setShowcaseSelection] = useState<string[]>(["matches", "avg_hist", "best_rating"]);
+  const [activeAccent, setActiveAccent] = useState(PROFILE_THEME.accentBlue);
+  const [activeFrame, setActiveFrame] = useState<AvatarFramePreset>(AVATAR_FRAMES[1]);
+
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [showcaseModalVisible, setShowcaseModalVisible] = useState(false);
+  const [bannerModalVisible, setBannerModalVisible] = useState(false);
+  const [frameModalVisible, setFrameModalVisible] = useState(false);
+  const [accentModalVisible, setAccentModalVisible] = useState(false);
+
+  const [editType, setEditType] = useState<"NAME" | "BIO" | "POSITION" | null>(null);
+  const [tempValue, setTempValue] = useState("");
+  const [tempName, setTempName] = useState("");
+  const [tempSurname, setTempSurname] = useState("");
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [changePasswordVisible, setChangePasswordVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [savingCustomization, setSavingCustomization] = useState(false);
+
+  const { shouldShow: showProfileCoachmark, markSeen: markProfileCoachmark } =
+    useCoachmark(CoachmarkKeys.PROFILE);
+  const [coachmarkStep, setCoachmarkStep] = useState(-1);
+  const [targetFrame, setTargetFrame] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const sectionYOffsets = useRef<Record<number, number>>({});
+  const scrollThenStepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const canShowCoachmark = useCoachmarkReady(
+    !loading && showProfileCoachmark && !dismissedThisSession,
+  );
+
+  useEffect(() => {
+    if (canShowCoachmark && coachmarkStep < 0) setCoachmarkStep(0);
+  }, [canShowCoachmark, coachmarkStep]);
+
+  const handleRequestNextStep = useCallback(
+    (nextStep: number) => {
+      if (scrollThenStepTimerRef.current) {
+        clearTimeout(scrollThenStepTimerRef.current);
+        scrollThenStepTimerRef.current = null;
+      }
+      const y = sectionYOffsets.current[nextStep];
+      if (y !== undefined) {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, y - SCROLL_OFFSET_PADDING),
+          animated: true,
+        });
+      }
+      scrollThenStepTimerRef.current = setTimeout(() => {
+        scrollThenStepTimerRef.current = null;
+        setCoachmarkStep(nextStep);
+        setTargetFrame(null);
+      }, SCROLL_THEN_STEP_MS);
+    },
+    [],
+  );
+
+  // Cosméticos desbloqueados para todos: mostramos todas las opciones.
+  const availableFrames = useMemo(() => AVATAR_FRAMES, []);
+  const availableShowcaseOptions = useMemo(() => SHOWCASE_OPTIONS, []);
+  const availableBanners = useMemo(() => PRESET_BANNERS, []);
+  const availableAccentColors = useMemo(() => ACCENT_COLORS, []);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/auth/profile/global");
+      const data = res.data;
+      const rawUser = data.profile;
+      const fullName = rawUser?.full_name || rawUser?.fullName || rawUser?.username || "Usuario";
+      const [firstName, ...restName] = String(fullName).trim().split(" ");
+      const formattedUser = {
+        ...rawUser,
+        photoUrl: rawUser?.profile_photo_url || rawUser?.photo || rawUser?.photoUrl || null,
+        name: firstName || "Usuario",
+        surname: restName.join(" "),
+        bannerUrl: rawUser?.banner_url || rawUser?.bannerUrl || null,
+        mainPosition: rawUser?.main_position || rawUser?.mainPosition || null,
+        planType: rawUser?.plan_type || rawUser?.planType || "FREE",
+      };
+      setUser(formattedUser);
+      setNotificationsEnabled(
+        rawUser?.notifications_enabled ?? rawUser?.notificationsEnabled ?? true,
+      );
+      setCareerStats(data.careerStats);
+      setTrophyCase(data.trophyCase);
+      setRecentMatches(data.recentMatches ?? []);
+
+      try {
+        // Logros deshabilitados
+      } catch {
+        // Logros deshabilitados
+      }
+
+      if (rawUser?.accent_color) {
+        const accentOpt = ACCENT_COLORS.find((a) => a.color === rawUser.accent_color);
+        if (accentOpt) setActiveAccent(rawUser.accent_color);
+      }
+      if (rawUser?.avatar_frame) {
+        const savedFrame = AVATAR_FRAMES.find((f) => f.id === rawUser.avatar_frame);
+        if (savedFrame) setActiveFrame(savedFrame);
+      }
+      if (rawUser?.showcase_items && Array.isArray(rawUser.showcase_items)) {
+        const validItems = rawUser.showcase_items.filter((id: string) => {
+          const opt = SHOWCASE_OPTIONS.find((o) => o.id === id);
+          return Boolean(opt);
+        });
+        if (validItems.length > 0) setShowcaseSelection(validItems);
+      }
+    } catch (error) {
+      showAlert(
+        "Error",
+        formatUserFacingError(error, "No se pudo cargar tu perfil."),
+        undefined,
+        "error",
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  const fetchActivity = useCallback(async () => {
+    if (!leagueId) {
+      setActivityDates([]);
+      return;
+    }
+    try {
+      const res = await apiClient.get(`/leagues/${leagueId}/my-stats`);
+      const list = Array.isArray(res.data?.activityDates) ? res.data.activityDates : [];
+      setActivityDates(list);
+    } catch {
+      setActivityDates([]);
+    }
+  }, [leagueId]);
+
+  // Si la liga se rehidrata luego de montar la screen, volvemos a pedir actividad.
+  useEffect(() => {
+    if (leagueId) {
+      fetchActivity();
+    }
+  }, [fetchActivity, leagueId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+      fetchActivity();
+    }, [fetchActivity, fetchData]),
+  );
+
+  // Al abrir el modal de marcos, refrescar data por consistencia visual
+  useEffect(() => {
+    if (frameModalVisible) fetchData();
+  }, [frameModalVisible]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setDismissedThisSession(false);
+      return () => {
+        setDismissedThisSession(true);
+        setCoachmarkStep(-1);
+        setTargetFrame(null);
+        if (scrollThenStepTimerRef.current) {
+          clearTimeout(scrollThenStepTimerRef.current);
+          scrollThenStepTimerRef.current = null;
+        }
+      };
+    }, []),
+  );
+
+  const openSubModal = useCallback((modalSetter: (value: boolean) => void) => {
+    setSettingsVisible(false);
+    setTimeout(() => modalSetter(true), 500);
+  }, []);
+
+  const handleNotificationsChange = useCallback(
+    async (value: boolean) => {
+      setNotificationsEnabled(value);
+      try {
+        await apiClient.put("/auth/update-profile", { notificationsEnabled: value });
+      } catch {
+        setNotificationsEnabled(!value);
+        showAlert(
+          "Error",
+          "No se pudo guardar la preferencia de notificaciones. Revisa tu conexión.",
+        );
+      }
+    },
+    [showAlert],
+  );
+
+  const saveCustomization = useCallback(
+    async (field: "banner" | "frame" | "accent" | "showcase", value: any) => {
+      setSavingCustomization(true);
+      try {
+        const payload: any = {};
+        if (field === "banner") payload.bannerUrl = value;
+        if (field === "accent") payload.accentColor = value;
+        if (field === "frame") payload.avatarFrame = value.id;
+        if (field === "showcase") payload.showcaseItems = value;
+
+        await apiClient.put("/auth/update-profile", payload, { timeout: 15000 });
+
+        if (field === "banner") setUser((prev: any) => (prev ? { ...prev, bannerUrl: value } : prev));
+        if (field === "frame") setActiveFrame(value);
+        if (field === "accent") setActiveAccent(value);
+        if (field === "showcase") setShowcaseSelection(value);
+
+        setBannerModalVisible(false);
+        setFrameModalVisible(false);
+        setAccentModalVisible(false);
+        setShowcaseModalVisible(false);
+      } catch (error: unknown) {
+        const msg = formatUserFacingError(error, "No se pudieron guardar los cambios.");
+        setBannerModalVisible(false);
+        setFrameModalVisible(false);
+        setAccentModalVisible(false);
+        setShowcaseModalVisible(false);
+        showAlert("Error", msg, undefined, "error");
+        fetchData();
+      } finally {
+        setSavingCustomization(false);
+      }
+    },
+    [showAlert, fetchData],
+  );
+
+  const toggleShowcaseItem = useCallback(
+    (id: string) => {
+      if (showcaseSelection.includes(id)) {
+        setShowcaseSelection((prev) => prev.filter((item) => item !== id));
+      } else {
+        if (showcaseSelection.length < 3) {
+          setShowcaseSelection((prev) => [...prev, id]);
+        } else {
+          showAlert("Vitrina Llena", "Solo puedes destacar 3 estadísticas.");
+        }
+      }
+    },
+    [showcaseSelection, showAlert],
+  );
+
+  const handleOpenShowcaseModal = useCallback(async () => {
+    await fetchData();
+    setShowcaseModalVisible(true);
+  }, [fetchData]);
+
+  const getShowcaseValue = useCallback(
+    (id: string) => {
+      if (!careerStats || !trophyCase) return "-";
+      switch (id) {
+        case "mvp":
+          return trophyCase.mvp || 0;
+        case "matches":
+          return careerStats.totalMatches || 0;
+        case "avg_hist":
+          return Number(careerStats.averageRating || 0).toFixed(1);
+        case "best_rating":
+          return Number(careerStats.highestRating || 0).toFixed(1);
+        case "tronco":
+          return trophyCase.tronco || 0;
+        case "duel":
+          return trophyCase.duel ?? 0;
+        case "oracle":
+          return trophyCase.oracle ?? 0;
+        case "last_match":
+          const last = recentMatches[0];
+          return last ? Number(last.rating || 0).toFixed(1) : "-";
+        default:
+          return "-";
+      }
+    },
+    [careerStats, trophyCase, recentMatches],
+  );
+
+  const uploadImage = useCallback(
+    async (asset: ImagePicker.ImagePickerAsset) => {
+      try {
+        setUploading(true);
+        const { uri, fileSize, mimeType, fileName } = asset;
+
+        // Validar tamaño de la imagen
+        let sizeBytes = fileSize;
+        if (sizeBytes == null) {
+          const info = await FileSystem.getInfoAsync(uri);
+          sizeBytes = (info as { size?: number }).size ?? 0;
+        }
+        if (sizeBytes > MAX_IMAGE_SIZE_BYTES) {
+          showAlert(
+            "Imagen demasiado grande",
+            "La imagen no puede superar 5 MB. Por favor, elige una foto más pequeña o comprímela antes de subirla.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+
+        // Validar formato (mimeType puede ser null en algunas plataformas)
+        const type = mimeType ?? (fileName?.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg");
+        if (type && !ALLOWED_MIME_TYPES.includes(type)) {
+          showAlert(
+            "Formato no válido",
+            "Solo se permiten imágenes JPEG, PNG, GIF o WebP.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+
+        const formData = new FormData();
+        const filename = fileName ?? "profile.jpg";
+        const contentType = type ?? "image/jpeg";
+        // @ts-expect-error - React Native FormData acepta { uri, name, type } para archivos
+        formData.append("photo", { uri, name: filename, type: contentType });
+
+        const token = await SecureStore.getItemAsync("userToken");
+        const url = `${getApiBaseUrl()}/auth/upload-avatar`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+          body: formData,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        const data = (await res.json().catch(() => ({}))) as { user?: { profile_photo_url?: string }; photoUrl?: string; url?: string; error?: string; message?: string };
+
+        if (res.ok) {
+          const newPhotoUrl = data?.user?.profile_photo_url ?? data?.photoUrl ?? data?.url;
+          if (newPhotoUrl) {
+            setUser((prev: any) => (prev ? { ...prev, photoUrl: newPhotoUrl } : prev));
+            setTimeout(() => fetchData(), 500);
+          }
+          return;
+        }
+
+        // Errores HTTP del backend
+        const backendMsg = data?.error ?? data?.message;
+        if (res.status === 413) {
+          showAlert(
+            "Imagen demasiado grande",
+            "El servidor rechazó la imagen por su tamaño. Prueba con una foto más pequeña.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+        if (res.status === 415) {
+          showAlert(
+            "Formato no válido",
+            "El formato de imagen no es válido. Usa JPEG, PNG, GIF o WebP.",
+            undefined,
+            "error"
+          );
+          return;
+        }
+        showAlert(
+          "Error al subir",
+          backendMsg ?? `No se pudo subir la imagen (error ${res.status}).`,
+          undefined,
+          "error"
+        );
+      } catch (e: unknown) {
+        showAlert(
+          "Error al subir la foto",
+          formatUserFacingError(e, "No se pudo subir la imagen. Intentá de nuevo."),
+          undefined,
+          "error",
+        );
+      } finally {
+        setUploading(false);
+      }
+    },
+    [showAlert, fetchData],
+  );
+
+  const handlePickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") return showAlert("Permiso denegado", undefined, undefined, "error");
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled) await uploadImage(result.assets[0]);
+  }, [showAlert, uploadImage]);
+
+  const handleSaveProfile = useCallback(async () => {
+    if (editType === "POSITION" && !tempValue?.trim()) {
+      showAlert("Posición requerida", "Selecciona tu posición en la cancha para guardar.");
+      return;
+    }
+    try {
+      setLoading(true);
+      const payload: any = {};
+      if (editType === "NAME") {
+        payload.name = tempName;
+        payload.surname = tempSurname;
+      } else if (editType === "BIO") payload.bio = tempValue;
+      else if (editType === "POSITION") payload.mainPosition = tempValue;
+
+      await apiClient.put("/auth/update-profile", payload);
+      setEditModalVisible(false);
+      fetchData();
+    } catch (e: unknown) {
+      showAlert(
+        "Error",
+        formatUserFacingError(e, "No se pudieron guardar los cambios."),
+        undefined,
+        "error",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [editType, tempName, tempSurname, tempValue, fetchData, showAlert]);
+
+  const handleLogout = useCallback(async () => {
+    await SecureStore.deleteItemAsync("userToken");
+    router.replace("/(auth)/login");
+  }, [router]);
+
+  const openLegalUrl = useCallback(
+    (url: string) => {
+      Linking.canOpenURL(url).then((supported) => {
+        if (supported) Linking.openURL(url);
+        else showAlert("Error", "No se puede abrir el enlace.");
+      });
+    },
+    [showAlert],
+  );
+
+  const closeChangePasswordModal = useCallback(() => {
+    setChangePasswordVisible(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  }, []);
+
+  const handleChangePassword = useCallback(async () => {
+    if (!currentPassword) {
+      showAlert("Error", "Ingresa tu contraseña actual.");
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      showAlert("Error", "La nueva contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showAlert("Error", "Las contraseñas no coinciden.");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await apiClient.post(
+        "/auth/change-password",
+        { oldPassword: currentPassword, newPassword },
+        { timeout: 25000, validateStatus: () => true },
+      );
+      const ok = res.status >= 200 && res.status < 300;
+      closeChangePasswordModal();
+      setChangingPassword(false);
+      if (ok) {
+        setTimeout(() => showAlert("Listo", "Tu contraseña fue actualizada correctamente."), 300);
+        return;
+      }
+      const backendMsg = res.data?.message ?? res.data?.error ?? `Error ${res.status}`;
+      setTimeout(
+        () =>
+          showAlert(
+            "Error",
+            typeof backendMsg === "string" ? backendMsg : "No se pudo cambiar la contraseña.",
+            undefined,
+            "error",
+          ),
+        300,
+      );
+    } catch (e: unknown) {
+      closeChangePasswordModal();
+      setChangingPassword(false);
+      const msg = formatUserFacingError(e, "No se pudo cambiar la contraseña.");
+      setTimeout(() => showAlert("Error", msg, undefined, "error"), 300);
+    }
+  }, [
+    currentPassword,
+    newPassword,
+    confirmPassword,
+    closeChangePasswordModal,
+    showAlert,
+  ]);
+
+  const handleDeleteAccount = useCallback(() => {
+    showAlert(
+      "Eliminar mi cuenta",
+      "¿Estás seguro? Esta acción es irreversible y borrará todos tus datos.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiClient.delete("/users/me");
+              await SecureStore.deleteItemAsync("userToken");
+              router.replace("/(auth)/login");
+            } catch (e: unknown) {
+              showAlert(
+                "Error",
+                formatUserFacingError(e, "No se pudo eliminar la cuenta."),
+                undefined,
+                "error",
+              );
+            }
+          },
+        },
+      ],
+    );
+  }, [showAlert, router]);
+
+  const getRatingColor = useCallback((rating: number) => {
+    if (rating >= 8) return PROFILE_THEME.accentGreen;
+    if (rating >= 6) return PROFILE_THEME.accentGold;
+    return PROFILE_THEME.danger;
+  }, []);
+
+  const viewShotRef = useRef<ViewShot>(null);
+  const handleShare = useCallback(async () => {
+    try {
+      const uri = await viewShotRef.current?.capture?.();
+      if (uri && (await Sharing.isAvailableAsync())) await Sharing.shareAsync(uri);
+    } catch (e: unknown) {
+      showAlert(
+        "Error",
+        formatUserFacingError(e, "No se pudo compartir la imagen."),
+        undefined,
+        "error",
+      );
+    }
+  }, [showAlert]);
+
+  const shareCardData = useMemo(() => {
+    if (!user) return null;
+    const bannerDef = user.bannerUrl
+      ? PRESET_BANNERS.find((b) => b.id === user.bannerUrl)
+      : undefined;
+    const frameColorResolved = activeFrame.color === "accent" ? activeAccent : activeFrame.color;
+    const items = showcaseSelection
+      .map((id) => {
+        const opt = SHOWCASE_OPTIONS.find((o) => o.id === id);
+        return opt
+          ? { id, label: opt.label, icon: opt.icon, value: getShowcaseValue(id), color: opt.color }
+          : null;
+      })
+      .filter(Boolean) as {
+      id: string;
+      label: string;
+      icon: string;
+      value: string | number;
+      color: string;
+    }[];
+    return {
+      bannerSource: bannerDef?.source ?? null,
+      photoUrl: user.photoUrl ?? null,
+      name: [user.name, user.surname].filter(Boolean).join(" ").trim() || "Usuario",
+      username: user.username || "usuario",
+      mainPosition: formatPositionForDisplay(user.mainPosition),
+      isPro: user.planType === "PRO",
+      frameSource: activeFrame.source ?? null,
+      frameColor: frameColorResolved,
+      frameWidth: activeFrame.width ?? 0,
+      accentColor: activeAccent,
+      showcaseItems: items,
+    };
+  }, [user, activeFrame, activeAccent, showcaseSelection, getShowcaseValue]);
+
+  if (loading && !refreshing && !editModalVisible) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: PROFILE_THEME.bg }} edges={["bottom"]}>
+        <StatusBar barStyle="light-content" backgroundColor={PROFILE_THEME.bg} />
+        <ProfileLoadingSkeleton />
+      </SafeAreaView>
+    );
+  }
+
+  const isPro = user?.planType === "PRO";
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: PROFILE_THEME.bg }} edges={["bottom"]}>
+      <StatusBar barStyle="light-content" backgroundColor={PROFILE_THEME.bg} />
+
+      <ScreenHeader
+        title="MI PERFIL"
+        showBack={fromSelector}
+        onBackPress={fromSelector ? () => router.replace("/(main)") : undefined}
+        showBell
+        rightAction={
+          <IconButton onPress={() => setSettingsVisible(true)} accessibilityLabel="Abrir ajustes">
+            <Ionicons name="settings-sharp" size={24} color={PROFILE_THEME.textPrimary} />
+          </IconButton>
+        }
+      />
+
+      {shareCardData && (
+        <View style={{ position: "absolute", left: -9999, top: 0, width: 340, height: 520, opacity: 0 }} pointerEvents="none">
+          <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.9 }} style={{ width: 340, height: 520, backgroundColor: Colors.surface }}>
+            <ShareableProfileCard {...shareCardData} />
+          </ViewShot>
+        </View>
+      )}
+
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={{ paddingHorizontal: 20 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              fetchData();
+            }}
+            tintColor={activeAccent}
+          />
+        }
+      >
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[0] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 0}
+            style={{ marginBottom: 0 }}
+            onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
+          >
+            <ProfileHeaderCard
+              user={user}
+              activeFrame={activeFrame}
+              activeAccent={activeAccent}
+              uploading={uploading}
+              onPickImage={handlePickImage}
+              onEditName={() => {
+                setEditModalVisible(true);
+                setEditType("NAME");
+                setTempName(user?.name ?? "");
+                setTempSurname(user?.surname ?? "");
+              }}
+              onEditBio={() => {
+                setEditModalVisible(true);
+                setEditType("BIO");
+                setTempValue(user?.bio ?? "");
+              }}
+              onEditPosition={() => {
+                setEditModalVisible(true);
+                setEditType("POSITION");
+                setTempValue(user?.mainPosition ?? "");
+              }}
+            />
+          </CoachmarkHighlight>
+        </View>
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[1] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 1}
+            style={{ marginBottom: 20 }}
+            onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
+          >
+            <ShareProfileButton accentColor={activeAccent} onShare={handleShare} />
+          </CoachmarkHighlight>
+        </View>
+
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[2] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 2}
+            style={{ marginBottom: 20 }}
+            onMeasure={(frame) => coachmarkStep === 2 && setTargetFrame(frame)}
+          >
+            <ProfileShowcaseSection
+              isPro={isPro}
+              showcaseSelection={showcaseSelection}
+              showcaseOptions={SHOWCASE_OPTIONS}
+              availableShowcaseOptions={availableShowcaseOptions}
+              getShowcaseValue={getShowcaseValue}
+              activeAccent={activeAccent}
+              onEditShowcase={handleOpenShowcaseModal}
+              onUnlockPro={() => router.push("/(main)/paywall")}
+            />
+          </CoachmarkHighlight>
+        </View>
+
+        {!!leagueId && (
+          <View style={{ marginBottom: 20 }}>
+            <ActivityHeatmap dates={activityDates} accentColor={activeAccent} />
+          </View>
+        )}
+
+        {/* Logros deshabilitados */}
+        <NativeAdCardWrapper style={{ marginBottom: 20 }} isPro={isPro} />
+
+        <TouchableOpacity
+          style={styles.quickNavCard}
+          onPress={() => router.push("/(main)/league/profile/locker")}
+          activeOpacity={0.85}
+        >
+          <View style={styles.quickNavIcon}>
+            <Ionicons name="briefcase-outline" size={22} color={activeAccent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.quickNavTitle}>MI TAQUILLA</Text>
+            <Text style={styles.quickNavSubtitle}>Consumibles listos para usar</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+        </TouchableOpacity>
+
+        {/* Acceso rápido: Mi rendimiento (solo dentro de una liga) */}
+        {!!leagueId && (
+          <TouchableOpacity
+            style={styles.quickNavCard}
+            onPress={() =>
+              router.push({
+                pathname: "/(main)/league/stats",
+                params: { leagueId },
+              })
+            }
+            activeOpacity={0.85}
+          >
+            <View style={styles.quickNavIcon}>
+              <Ionicons name="analytics-outline" size={22} color={activeAccent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.quickNavTitle}>MI RENDIMIENTO</Text>
+              <Text style={styles.quickNavSubtitle}>
+                Tus promedios, racha e historial de partidos
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+          </TouchableOpacity>
+        )}
+
+        <View
+          onLayout={(e) => {
+            sectionYOffsets.current[4] = e.nativeEvent.layout.y;
+          }}
+          collapsable={false}
+        >
+          <CoachmarkHighlight
+            highlighted={canShowCoachmark && coachmarkStep === 4}
+            style={{ marginBottom: 20 }}
+            onMeasure={(frame) => coachmarkStep === 4 && setTargetFrame(frame)}
+          >
+            <ProfileRecentMatches
+              recentMatches={recentMatches}
+              activeAccent={activeAccent}
+              getRatingColor={getRatingColor}
+            />
+          </CoachmarkHighlight>
+        </View>
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() =>
+            showAlert("Cerrar Sesión", "¿Estás seguro de que deseas salir?", [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Cerrar Sesión", style: "destructive", onPress: handleLogout },
+            ])
+          }
+          activeOpacity={0.8}
+        >
+          <Ionicons name="log-out-outline" size={20} color={PROFILE_THEME.danger} />
+          <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {canShowCoachmark && (
+        <CoachmarkModal
+          visible={true}
+          steps={PROFILE_COACHMARK_STEPS}
+          stepIndexProp={coachmarkStep}
+          onRequestNextStep={handleRequestNextStep}
+          onFinish={() => {
+            setDismissedThisSession(true);
+            setCoachmarkStep(-1);
+            setTargetFrame(null);
+            markProfileCoachmark();
+          }}
+          onStepChange={(step) => {
+            setCoachmarkStep(step);
+            if (step === -1) setTargetFrame(null);
+          }}
+          targetFrame={targetFrame}
+        />
+      )}
+
+      <ProfileShowcaseModal
+        visible={showcaseModalVisible}
+        onClose={() => !savingCustomization && setShowcaseModalVisible(false)}
+        availableOptions={availableShowcaseOptions}
+        showcaseSelection={showcaseSelection}
+        activeAccent={activeAccent}
+        onToggleItem={toggleShowcaseItem}
+        onSave={() => saveCustomization("showcase", showcaseSelection)}
+        saving={savingCustomization}
+      />
+      <ProfileBannerModal
+        visible={bannerModalVisible}
+        onClose={() => setBannerModalVisible(false)}
+        availableBanners={availableBanners}
+        currentBannerId={user?.bannerUrl}
+        activeAccent={activeAccent}
+        onSelect={(id) => saveCustomization("banner", id)}
+      />
+      <ProfileFrameModal
+        visible={frameModalVisible}
+        onClose={() => setFrameModalVisible(false)}
+        availableFrames={availableFrames}
+        activeFrame={activeFrame}
+        activeAccent={activeAccent}
+        onSelect={(frame) => saveCustomization("frame", frame)}
+      />
+      <ProfileAccentModal
+        visible={accentModalVisible}
+        onClose={() => setAccentModalVisible(false)}
+        availableAccentColors={availableAccentColors}
+        activeAccent={activeAccent}
+        onSelect={(color) => saveCustomization("accent", color)}
+      />
+
+      <ProfileSettingsModal
+        visible={settingsVisible}
+        onClose={() => setSettingsVisible(false)}
+        isPro={isPro}
+        activeAccent={activeAccent}
+        notificationsEnabled={notificationsEnabled}
+        onNotificationsChange={handleNotificationsChange}
+        onOpenBanner={() => openSubModal(setBannerModalVisible)}
+        onOpenFrame={() => openSubModal(setFrameModalVisible)}
+        onOpenAccent={() => openSubModal(setAccentModalVisible)}
+        onOpenShowcase={() => openSubModal(setShowcaseModalVisible)}
+        onEditName={() =>
+          openSubModal(() => {
+            setEditModalVisible(true);
+            setEditType("NAME");
+            setTempName(user?.name ?? "");
+            setTempSurname(user?.surname ?? "");
+          })
+        }
+        onEditPhoto={handlePickImage}
+        onEditBio={() =>
+          openSubModal(() => {
+            setEditModalVisible(true);
+            setEditType("BIO");
+            setTempValue(user?.bio ?? "");
+          })
+        }
+        onEditPosition={() =>
+          openSubModal(() => {
+            setEditModalVisible(true);
+            setEditType("POSITION");
+            setTempValue(user?.mainPosition ?? "");
+          })
+        }
+        onLegalUrl={openLegalUrl}
+        onManageSubscription={() => {
+          setSettingsVisible(false);
+          openSubscriptionManagement().catch((e: unknown) =>
+            showAlert(
+              "Gestionar suscripción",
+              e instanceof Error && e.message
+                ? e.message
+                : formatUserFacingError(e, "No se pudo abrir el centro de suscripción."),
+              undefined,
+              "error",
+            ),
+          );
+        }}
+        onGoPaywall={() => {
+          setSettingsVisible(false);
+          router.push("/(main)/paywall");
+        }}
+        onChangePassword={() => openSubModal(() => setChangePasswordVisible(true))}
+        onLogout={handleLogout}
+        onDeleteAccount={handleDeleteAccount}
+        onProLockedPress={(label) => showAlert("Premium", `Hazte PRO para desbloquear "${label}".`)}
+        privacyUrl={LEGAL_URLS.privacy}
+        termsUrl={LEGAL_URLS.terms}
+      />
+
+      <ProfileEditModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        editType={editType}
+        tempValue={tempValue}
+        tempName={tempName}
+        tempSurname={tempSurname}
+        onTempValueChange={setTempValue}
+        onTempNameChange={setTempName}
+        onTempSurnameChange={setTempSurname}
+        onSave={handleSaveProfile}
+        activeAccent={activeAccent}
+      />
+      <ProfileChangePasswordModal
+        visible={changePasswordVisible}
+        onClose={closeChangePasswordModal}
+        currentPassword={currentPassword}
+        newPassword={newPassword}
+        confirmPassword={confirmPassword}
+        onCurrentChange={setCurrentPassword}
+        onNewChange={setNewPassword}
+        onConfirmChange={setConfirmPassword}
+        onSave={handleChangePassword}
+        changing={changingPassword}
+        activeAccent={activeAccent}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  quickNavCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255,255,255,0.03)",
+    marginBottom: 20,
+  },
+  quickNavIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  quickNavTitle: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+  },
+  quickNavSubtitle: {
+    color: "#9CA3AF",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    marginTop: 24,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: PROFILE_THEME.danger,
+    backgroundColor: PROFILE_THEME.danger + "15",
+  },
+  logoutButtonText: {
+    color: PROFILE_THEME.danger,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+});
