@@ -10,10 +10,6 @@ import {
   Text,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
-import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
-import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
-import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import ViewShot from "react-native-view-shot";
@@ -61,29 +57,6 @@ import {
 } from "../../../../src/components/profile";
 import type { AvatarFramePreset } from "../../../../src/components/profile/profileConstants";
 
-const PROFILE_COACHMARK_STEPS = [
-  {
-    title: "Tu perfil",
-    body: "Acá ves tu foto, nombre y datos. Podés editarlos desde Ajustes (ícono de arriba a la derecha).",
-  },
-  {
-    title: "Compartir",
-    body: "Compartí tu tarjeta de perfil con tu equipo o en redes.",
-  },
-  {
-    title: "Vitrina",
-    body: "Elegí hasta 3 estadísticas para destacar en tu perfil. Los PRO pueden desbloquear más.",
-  },
-  {
-    title: "Logros y medallas",
-    body: "Tus logros desbloqueados y el medallero.",
-  },
-  {
-    title: "Partidos recientes",
-    body: "Tu historial de partidos y puntajes. Tocá uno para ver el detalle.",
-  },
-];
-
 const SCROLL_OFFSET_PADDING = 100;
 const SCROLL_THEN_STEP_MS = 480;
 
@@ -128,49 +101,7 @@ export default function ProfileScreen() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [savingCustomization, setSavingCustomization] = useState(false);
 
-  const { shouldShow: showProfileCoachmark, markSeen: markProfileCoachmark } =
-    useCoachmark(CoachmarkKeys.PROFILE);
-  const [coachmarkStep, setCoachmarkStep] = useState(-1);
-  const [targetFrame, setTargetFrame] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-  const sectionYOffsets = useRef<Record<number, number>>({});
-  const scrollThenStepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const canShowCoachmark = useCoachmarkReady(
-    !loading && showProfileCoachmark && !dismissedThisSession,
-  );
-
-  useEffect(() => {
-    if (canShowCoachmark && coachmarkStep < 0) setCoachmarkStep(0);
-  }, [canShowCoachmark, coachmarkStep]);
-
-  const handleRequestNextStep = useCallback(
-    (nextStep: number) => {
-      if (scrollThenStepTimerRef.current) {
-        clearTimeout(scrollThenStepTimerRef.current);
-        scrollThenStepTimerRef.current = null;
-      }
-      const y = sectionYOffsets.current[nextStep];
-      if (y !== undefined) {
-        scrollViewRef.current?.scrollTo({
-          y: Math.max(0, y - SCROLL_OFFSET_PADDING),
-          animated: true,
-        });
-      }
-      scrollThenStepTimerRef.current = setTimeout(() => {
-        scrollThenStepTimerRef.current = null;
-        setCoachmarkStep(nextStep);
-        setTargetFrame(null);
-      }, SCROLL_THEN_STEP_MS);
-    },
-    [],
-  );
 
   // Cosméticos desbloqueados para todos: mostramos todas las opciones.
   const availableFrames = useMemo(() => AVATAR_FRAMES, []);
@@ -268,21 +199,6 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (frameModalVisible) fetchData();
   }, [frameModalVisible]);
-
-  useFocusEffect(
-    useCallback(() => {
-      setDismissedThisSession(false);
-      return () => {
-        setDismissedThisSession(true);
-        setCoachmarkStep(-1);
-        setTargetFrame(null);
-        if (scrollThenStepTimerRef.current) {
-          clearTimeout(scrollThenStepTimerRef.current);
-          scrollThenStepTimerRef.current = null;
-        }
-      };
-    }, []),
-  );
 
   const openSubModal = useCallback((modalSetter: (value: boolean) => void) => {
     setSettingsVisible(false);
@@ -745,79 +661,45 @@ export default function ProfileScreen() {
           />
         }
       >
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[0] = e.nativeEvent.layout.y;
+        <ProfileHeaderCard
+          user={user}
+          activeFrame={activeFrame}
+          activeAccent={activeAccent}
+          uploading={uploading}
+          onPickImage={handlePickImage}
+          onEditName={() => {
+            setEditModalVisible(true);
+            setEditType("NAME");
+            setTempName(user?.name ?? "");
+            setTempSurname(user?.surname ?? "");
           }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 0}
-            style={{ marginBottom: 0 }}
-            onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
-          >
-            <ProfileHeaderCard
-              user={user}
-              activeFrame={activeFrame}
-              activeAccent={activeAccent}
-              uploading={uploading}
-              onPickImage={handlePickImage}
-              onEditName={() => {
-                setEditModalVisible(true);
-                setEditType("NAME");
-                setTempName(user?.name ?? "");
-                setTempSurname(user?.surname ?? "");
-              }}
-              onEditBio={() => {
-                setEditModalVisible(true);
-                setEditType("BIO");
-                setTempValue(user?.bio ?? "");
-              }}
-              onEditPosition={() => {
-                setEditModalVisible(true);
-                setEditType("POSITION");
-                setTempValue(user?.mainPosition ?? "");
-              }}
-            />
-          </CoachmarkHighlight>
-        </View>
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[1] = e.nativeEvent.layout.y;
+          onEditBio={() => {
+            setEditModalVisible(true);
+            setEditType("BIO");
+            setTempValue(user?.bio ?? "");
           }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 1}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
-          >
-            <ShareProfileButton accentColor={activeAccent} onShare={handleShare} />
-          </CoachmarkHighlight>
+          onEditPosition={() => {
+            setEditModalVisible(true);
+            setEditType("POSITION");
+            setTempValue(user?.mainPosition ?? "");
+          }}
+        />
+
+        <View style={{ marginBottom: 20 }}>
+          <ShareProfileButton accentColor={activeAccent} onShare={handleShare} />
         </View>
 
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[2] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 2}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 2 && setTargetFrame(frame)}
-          >
-            <ProfileShowcaseSection
-              isPro={isPro}
-              showcaseSelection={showcaseSelection}
-              showcaseOptions={SHOWCASE_OPTIONS}
-              availableShowcaseOptions={availableShowcaseOptions}
-              getShowcaseValue={getShowcaseValue}
-              activeAccent={activeAccent}
-              onEditShowcase={handleOpenShowcaseModal}
-              onUnlockPro={() => router.push("/(main)/paywall")}
-            />
-          </CoachmarkHighlight>
+        <View style={{ marginBottom: 20 }}>
+          <ProfileShowcaseSection
+            isPro={isPro}
+            showcaseSelection={showcaseSelection}
+            showcaseOptions={SHOWCASE_OPTIONS}
+            availableShowcaseOptions={availableShowcaseOptions}
+            getShowcaseValue={getShowcaseValue}
+            activeAccent={activeAccent}
+            onEditShowcase={handleOpenShowcaseModal}
+            onUnlockPro={() => router.push("/(main)/paywall")}
+          />
         </View>
 
         {!!leagueId && (
@@ -828,6 +710,21 @@ export default function ProfileScreen() {
 
         {/* Logros deshabilitados */}
         <NativeAdCardWrapper style={{ marginBottom: 20 }} isPro={isPro} />
+
+        <TouchableOpacity
+          style={styles.quickNavCard}
+          onPress={() => router.push("/(main)/league/profile/missions")}
+          activeOpacity={0.85}
+        >
+          <View style={styles.quickNavIcon}>
+            <Ionicons name="trophy-outline" size={22} color={activeAccent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.quickNavTitle}>MISIONES</Text>
+            <Text style={styles.quickNavSubtitle}>Recompensas para reclamar</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#6B7280" />
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.quickNavCard}
@@ -869,23 +766,12 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[4] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 4}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 4 && setTargetFrame(frame)}
-          >
-            <ProfileRecentMatches
-              recentMatches={recentMatches}
-              activeAccent={activeAccent}
-              getRatingColor={getRatingColor}
-            />
-          </CoachmarkHighlight>
+        <View style={{ marginBottom: 20 }}>
+          <ProfileRecentMatches
+            recentMatches={recentMatches}
+            activeAccent={activeAccent}
+            getRatingColor={getRatingColor}
+          />
         </View>
 
         <TouchableOpacity
@@ -904,26 +790,6 @@ export default function ProfileScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
-
-      {canShowCoachmark && (
-        <CoachmarkModal
-          visible={true}
-          steps={PROFILE_COACHMARK_STEPS}
-          stepIndexProp={coachmarkStep}
-          onRequestNextStep={handleRequestNextStep}
-          onFinish={() => {
-            setDismissedThisSession(true);
-            setCoachmarkStep(-1);
-            setTargetFrame(null);
-            markProfileCoachmark();
-          }}
-          onStepChange={(step) => {
-            setCoachmarkStep(step);
-            if (step === -1) setTargetFrame(null);
-          }}
-          targetFrame={targetFrame}
-        />
-      )}
 
       <ProfileShowcaseModal
         visible={showcaseModalVisible}

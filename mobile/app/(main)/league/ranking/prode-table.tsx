@@ -5,6 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useRouter, useGlobalSearchParams, useFocusEffect } from "expo-router";
 import { useCurrentLeagueId } from "../../../../src/context/LeagueContext";
@@ -40,6 +42,7 @@ export default function ProdeTableScreen() {
   const leagueId = useCurrentLeagueId(params.leagueId ?? null);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ProdeRow[]>([]);
+  const [infoVisible, setInfoVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,7 +82,14 @@ export default function ProdeTableScreen() {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>TABLA DEL PRODE</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity
+          onPress={() => setInfoVisible(true)}
+          style={styles.infoBtn}
+          activeOpacity={0.75}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="information-circle-outline" size={22} color="#22D3EE" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -201,6 +211,56 @@ export default function ProdeTableScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={infoVisible} transparent animationType="fade" onRequestClose={() => setInfoVisible(false)}>
+        <Pressable style={styles.tipOverlay} onPress={() => setInfoVisible(false)}>
+          <Pressable style={styles.tipCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.tipHeader}>
+              <View style={styles.tipIcon}>
+                <MaterialCommunityIcons name="crystal-ball" size={18} color="#22D3EE" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.tipTitle}>¿Qué son los Prode Points?</Text>
+                <Text style={styles.tipSub}>Puntos del Prode dentro de tu liga</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setInfoVisible(false)}
+                style={styles.tipClose}
+                activeOpacity={0.8}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={18} color="rgba(255,255,255,0.75)" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.tipBody}>
+              <Text style={styles.tipText}>
+                Los <Text style={styles.tipTextAccent}>Prode Points</Text> son tu puntaje por acertar predicciones.
+                Se acumulan por fecha cuando se resuelven las predicciones del partido.
+              </Text>
+
+              <View style={styles.tipBullets}>
+                <View style={styles.tipBulletRow}>
+                  <Text style={styles.tipBulletDot}>•</Text>
+                  <Text style={styles.tipBulletText}>Acertar opciones suma puntos.</Text>
+                </View>
+                <View style={styles.tipBulletRow}>
+                  <Text style={styles.tipBulletDot}>•</Text>
+                  <Text style={styles.tipBulletText}>Las predicciones “más difíciles” suelen dar más.</Text>
+                </View>
+                <View style={styles.tipBulletRow}>
+                  <Text style={styles.tipBulletDot}>•</Text>
+                  <Text style={styles.tipBulletText}>El ranking se actualiza al cerrar/resolver la votación del partido.</Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.tipCta} onPress={() => setInfoVisible(false)} activeOpacity={0.85}>
+              <Text style={styles.tipCtaText}>Entendido</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -221,6 +281,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   backBtn: { padding: 5 },
+  infoBtn: { padding: 5 },
 
   statCard: {
     backgroundColor: "#1F2937",
@@ -313,4 +374,107 @@ const styles = StyleSheet.create({
   playerUsername: { color: "#6B7280", fontSize: 11, marginTop: 1 },
   colPts: { width: 50, alignItems: "flex-end" },
   ptsValue: { color: "#22D3EE", fontSize: 14, fontWeight: "800" },
+
+  // --- Tooltip Prode Points ---
+  tipOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    justifyContent: "center",
+    padding: 18,
+  },
+  tipCard: {
+    backgroundColor: "#0B1220",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(34, 211, 238, 0.25)",
+    padding: 14,
+  },
+  tipHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+  },
+  tipIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(34, 211, 238, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(34, 211, 238, 0.20)",
+  },
+  tipTitle: {
+    color: "#22D3EE",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+  tipSub: {
+    marginTop: 2,
+    color: "rgba(255,255,255,0.60)",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  tipClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  tipBody: {
+    paddingTop: 4,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  tipText: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 13,
+    fontWeight: "650",
+    lineHeight: 18,
+  },
+  tipTextAccent: {
+    color: "#22D3EE",
+    fontWeight: "900",
+  },
+  tipBullets: {
+    gap: 8,
+  },
+  tipBulletRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  tipBulletDot: {
+    color: "#22D3EE",
+    fontSize: 14,
+    lineHeight: 18,
+    marginTop: -1,
+  },
+  tipBulletText: {
+    flex: 1,
+    color: "rgba(255,255,255,0.74)",
+    fontSize: 13,
+    fontWeight: "650",
+    lineHeight: 18,
+  },
+  tipCta: {
+    backgroundColor: "rgba(34, 211, 238, 0.16)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(34, 211, 238, 0.22)",
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tipCtaText: {
+    color: "#22D3EE",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
 });

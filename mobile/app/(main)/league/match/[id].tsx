@@ -77,6 +77,7 @@ export default function MatchDetailScreen() {
   const [scoreModalVisible, setScoreModalVisible] = useState(false);
   const [targetStatus, setTargetStatus] = useState<string | null>(null);
   const [adminBusy, setAdminBusy] = useState(false);
+  const [incidentsVisible, setIncidentsVisible] = useState(false);
 
   const getConsumableVisual = useCallback(
     (consumableKey?: string | null): { icon: keyof typeof Ionicons.glyphMap; color: string } => {
@@ -270,6 +271,31 @@ export default function MatchDetailScreen() {
     match?.is_external,
     fetchDetails,
   ]);
+
+  const setPlayerFlags = useCallback(
+    async (userId: string, flags: { injured?: boolean; leftEarly?: boolean }) => {
+      if (!matchId) return;
+      try {
+        setAdminBusy(true);
+        await apiClient.post(`/match/${matchId}/admin/player-flags`, {
+          userId,
+          ...(flags.injured !== undefined ? { injured: flags.injured } : {}),
+          ...(flags.leftEarly !== undefined ? { leftEarly: flags.leftEarly } : {}),
+        });
+        await fetchDetails();
+      } catch (e: unknown) {
+        showAlert(
+          "Error",
+          formatUserFacingError(e, "No se pudo guardar el incidente."),
+          undefined,
+          "error",
+        );
+      } finally {
+        setAdminBusy(false);
+      }
+    },
+    [matchId, fetchDetails, showAlert],
+  );
 
   const handleStatusChange = useCallback(
     async (newStatus: string) => {
@@ -730,6 +756,21 @@ export default function MatchDetailScreen() {
                     </TouchableOpacity>
                   </View>
                 )}
+
+                {/* Incidentes (admin): lesionado / no completa */}
+                {isAdminOrOwner && confirmed.length > 0 && (
+                  <View style={styles.adminActionsBox}>
+                    <TouchableOpacity
+                      style={[styles.smallBtnAlt, adminBusy && { opacity: 0.6 }]}
+                      onPress={() => setIncidentsVisible(true)}
+                      disabled={adminBusy}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="bandage-outline" size={16} color="white" />
+                      <Text style={styles.smallBtnText}>INCIDENTES</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 <PlayerAccordionGrid
                   confirmed={confirmed.map((p: any) => ({
                     id: p.user_id ?? p.id,
@@ -830,6 +871,92 @@ export default function MatchDetailScreen() {
           )}
           <View style={{ height: 60 }} />
         </ScrollView>
+
+        {/* Modal Incidentes */}
+        <Modal
+          visible={incidentsVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            if (!adminBusy) setIncidentsVisible(false);
+          }}
+        >
+          <Pressable
+            style={styles.modalOverlay}
+            onPress={() => {
+              if (!adminBusy) setIncidentsVisible(false);
+            }}
+          >
+            <Pressable style={styles.incidentsCard} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.incidentsHeader}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.incidentsTitle}>Incidentes</Text>
+                  <Text style={styles.incidentsSubtitle} numberOfLines={2}>
+                    Esto se usa para validar apuestas del partido.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => !adminBusy && setIncidentsVisible(false)}
+                  style={{ padding: 6 }}
+                  disabled={adminBusy}
+                >
+                  <Ionicons name="close" size={22} color={THEME.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 520 }}>
+                {confirmed.map((p: any) => {
+                  const name = p.users?.full_name || p.users?.username || "Jugador";
+                  const injured = Boolean(p.injured);
+                  const leftEarly = Boolean(p.left_early);
+                  return (
+                    <View key={p.user_id ?? name} style={styles.incidentRow}>
+                      <UserAvatar imageUrl={p.users?.profile_photo_url} name={name} size={40} />
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.rowName} numberOfLines={1}>
+                          {name}
+                        </Text>
+                        <View style={styles.incidentChipsRow}>
+                          <TouchableOpacity
+                            activeOpacity={0.85}
+                            disabled={adminBusy}
+                            onPress={() => setPlayerFlags(p.user_id, { injured: !injured })}
+                            style={[styles.incidentChip, injured && styles.incidentChipActive]}
+                          >
+                            <Ionicons
+                              name={injured ? "checkmark-circle" : "ellipse-outline"}
+                              size={16}
+                              color={injured ? "#111827" : THEME.textSecondary}
+                            />
+                            <Text style={[styles.incidentChipText, injured && styles.incidentChipTextActive]}>
+                              Lesionado
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            activeOpacity={0.85}
+                            disabled={adminBusy}
+                            onPress={() => setPlayerFlags(p.user_id, { leftEarly: !leftEarly })}
+                            style={[styles.incidentChip, leftEarly && styles.incidentChipActive]}
+                          >
+                            <Ionicons
+                              name={leftEarly ? "checkmark-circle" : "ellipse-outline"}
+                              size={16}
+                              color={leftEarly ? "#111827" : THEME.textSecondary}
+                            />
+                            <Text style={[styles.incidentChipText, leftEarly && styles.incidentChipTextActive]}>
+                              No completó
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -904,6 +1031,84 @@ const styles = StyleSheet.create({
   badgeLocal: { backgroundColor: THEME.accentBlue },
   badgeVisita: { backgroundColor: THEME.purple },
   badgeConvoked: { backgroundColor: THEME.accentGreen },
+  smallBtnAlt: {
+    backgroundColor: "#111827",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.25)",
+  },
+  incidentsCard: {
+    width: "92%",
+    alignSelf: "center",
+    marginTop: 110,
+    backgroundColor: THEME.cardBg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    padding: 14,
+  },
+  incidentsHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 12,
+  },
+  incidentsTitle: {
+    color: "white",
+    fontWeight: "900",
+    fontSize: 15,
+  },
+  incidentsSubtitle: {
+    color: THEME.textSecondary,
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+  },
+  incidentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  incidentChipsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+    flexWrap: "wrap",
+  },
+  incidentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.03)",
+  },
+  incidentChipActive: {
+    backgroundColor: THEME.accentGold,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  incidentChipText: {
+    color: THEME.textSecondary,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  incidentChipTextActive: {
+    color: "#111827",
+  },
   saveBtn: {
     backgroundColor: "white",
     borderRadius: 12,

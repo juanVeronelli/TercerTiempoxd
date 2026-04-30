@@ -20,23 +20,8 @@ import { useCurrentUser } from "../../../../src/hooks/useCurrentUser";
 import apiClient from "../../../../src/api/apiClient";
 import { formatUserFacingError } from "../../../../src/api/apiErrors";
 import { NativeAdCardWrapper } from "../../../../src/components/ads/NativeAdCardWrapper";
-import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
-import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
-import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
-import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 
 const { width } = Dimensions.get("window");
-
-const RANKING_COACHMARK_STEPS = [
-  {
-    title: "Ranking General",
-    body: "Acá ves la tabla de puntajes de toda la liga. Entrá para ver posiciones y promedios.",
-  },
-  {
-    title: "Salón de la Fama",
-    body: "El medallero histórico: quién tiene más MVPs, Troncos y Oracles. Este es el MVP del mes y los que más destacan.",
-  },
-];
 
 export default function RankingHubScreen() {
   const router = useRouter();
@@ -101,25 +86,6 @@ export default function RankingHubScreen() {
 
   const isPro = planType?.toUpperCase() === "PRO";
   const isRankingLocked = !hasCompletedMatch;
-  const { shouldShow: showRankingCoachmark, markSeen: markRankingCoachmark } =
-    useCoachmark(CoachmarkKeys.RANKING);
-  const [coachmarkStep, setCoachmarkStep] = useState(-1);
-  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
-  const canShowCoachmark = useCoachmarkReady(
-    !isRankingLocked && showRankingCoachmark && !dismissedThisSession,
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      setDismissedThisSession(false);
-      return () => {
-        setDismissedThisSession(true);
-        setCoachmarkStep(-1);
-        setTargetFrame(null);
-      };
-    }, []),
-  );
 
   if (loading) {
     return (
@@ -165,23 +131,6 @@ export default function RankingHubScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScreenHeader title="COMPETENCIA" showBack={false} />
-      {canShowCoachmark && (
-        <CoachmarkModal
-          visible={true}
-          steps={RANKING_COACHMARK_STEPS}
-          onFinish={() => {
-            setDismissedThisSession(true);
-            setCoachmarkStep(-1);
-            setTargetFrame(null);
-            markRankingCoachmark();
-          }}
-          onStepChange={(step) => {
-            setCoachmarkStep(step);
-            if (step === -1) setTargetFrame(null);
-          }}
-          targetFrame={targetFrame}
-        />
-      )}
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -189,80 +138,68 @@ export default function RankingHubScreen() {
       >
         <Text style={styles.sectionTitle}>TABLAS OFICIALES</Text>
 
-        <CoachmarkHighlight
-          highlighted={canShowCoachmark && coachmarkStep === 0}
-          style={{ marginBottom: 15 }}
-          onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
+        <TouchableOpacity
+          style={[styles.navCard, { marginBottom: 15 }]}
+          onPress={() =>
+            leagueId
+              ? router.push({
+                  pathname: "/(main)/league/ranking/table",
+                  params: { leagueId },
+                })
+              : router.push("/(main)/league/ranking/table")
+          }
         >
-          <TouchableOpacity
-            style={styles.navCard}
-            onPress={() =>
-              leagueId
-                ? router.push({
-                    pathname: "/(main)/league/ranking/table",
-                    params: { leagueId },
-                  })
-                : router.push("/(main)/league/ranking/table")
-            }
+          <View
+            style={[
+              styles.iconBox,
+              { backgroundColor: "rgba(16, 185, 129, 0.15)" },
+            ]}
           >
-            <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: "rgba(16, 185, 129, 0.15)" },
-              ]}
-            >
-              <Ionicons name="stats-chart" size={32} color="#10B981" />
-            </View>
-            <View style={styles.cardTextContainer}>
-              <Text style={styles.cardTitle}>RANKING GENERAL</Text>
-              <Text style={styles.cardDesc}>
-                Mira todos los puntajes de tu liga hasta hoy.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#4B5563" />
-          </TouchableOpacity>
-        </CoachmarkHighlight>
+            <Ionicons name="stats-chart" size={32} color="#10B981" />
+          </View>
+          <View style={styles.cardTextContainer}>
+            <Text style={styles.cardTitle}>RANKING GENERAL</Text>
+            <Text style={styles.cardDesc}>
+              Mira todos los puntajes de tu liga hasta hoy.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#4B5563" />
+        </TouchableOpacity>
 
         <NativeAdCardWrapper
           style={{ marginTop: 16, marginBottom: 16 }}
           isPro={isPro}
         />
 
-        <CoachmarkHighlight
-          highlighted={canShowCoachmark && coachmarkStep === 1}
-          style={{ marginBottom: 15 }}
-          onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
+        <TouchableOpacity
+          style={[styles.navCard, { marginBottom: 15 }]}
+          onPress={() =>
+            leagueId
+              ? router.push({
+                  pathname: "/(main)/league/ranking/honors",
+                  params: { leagueId },
+                })
+              : router.push("/(main)/league/ranking/honors")
+          }
         >
-          <TouchableOpacity
-            style={styles.navCard}
-            onPress={() =>
-              leagueId
-                ? router.push({
-                    pathname: "/(main)/league/ranking/honors",
-                    params: { leagueId },
-                  })
-                : router.push("/(main)/league/ranking/honors")
-            }
+          <View
+            style={[
+              styles.iconBox,
+              { backgroundColor: "rgba(245, 158, 11, 0.15)" },
+            ]}
           >
-            <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: "rgba(245, 158, 11, 0.15)" },
-              ]}
-            >
-              <Ionicons name="trophy" size={32} color="#F59E0B" />
-            </View>
-            <View style={styles.cardTextContainer}>
-              <Text style={[styles.cardTitle, { color: "#F59E0B" }]}>
-                SALÓN DE LA FAMA
-              </Text>
-              <Text style={styles.cardDesc}>
-                El medallero histórico de MVPs y Troncos.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#4B5563" />
-          </TouchableOpacity>
-        </CoachmarkHighlight>
+            <Ionicons name="trophy" size={32} color="#F59E0B" />
+          </View>
+          <View style={styles.cardTextContainer}>
+            <Text style={[styles.cardTitle, { color: "#F59E0B" }]}>
+              SALÓN DE LA FAMA
+            </Text>
+            <Text style={styles.cardDesc}>
+              El medallero histórico de MVPs y Troncos.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#4B5563" />
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.navCard}

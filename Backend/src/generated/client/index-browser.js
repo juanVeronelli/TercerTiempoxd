@@ -143,7 +143,9 @@ exports.Prisma.UsersScalarFieldEnum = {
   acceptsMarketing: 'acceptsMarketing',
   expo_push_token: 'expo_push_token',
   notifications_enabled: 'notifications_enabled',
-  ttp_balance: 'ttp_balance'
+  ttp_balance: 'ttp_balance',
+  daily_free_ttp_streak: 'daily_free_ttp_streak',
+  daily_free_ttp_last_claim_at: 'daily_free_ttp_last_claim_at'
 };
 
 exports.Prisma.LeaguesScalarFieldEnum = {
@@ -229,6 +231,13 @@ exports.Prisma.Match_playersScalarFieldEnum = {
   user_id: 'user_id',
   team: 'team',
   has_confirmed: 'has_confirmed',
+  confirmed_at: 'confirmed_at',
+  was_first_confirm: 'was_first_confirm',
+  is_top_defense: 'is_top_defense',
+  is_top_pace: 'is_top_pace',
+  is_top_technique: 'is_top_technique',
+  is_top_physical: 'is_top_physical',
+  is_top_attack: 'is_top_attack',
   self_vote_overall: 'self_vote_overall',
   match_rating: 'match_rating',
   match_pace: 'match_pace',
@@ -236,7 +245,9 @@ exports.Prisma.Match_playersScalarFieldEnum = {
   match_technique: 'match_technique',
   match_physical: 'match_physical',
   match_attack: 'match_attack',
-  prediction_points: 'prediction_points'
+  prediction_points: 'prediction_points',
+  injured: 'injured',
+  left_early: 'left_early'
 };
 
 exports.Prisma.Match_spectatorsScalarFieldEnum = {
@@ -399,6 +410,45 @@ exports.Prisma.User_cosmeticsScalarFieldEnum = {
   unlocked_at: 'unlocked_at'
 };
 
+exports.Prisma.MissionsScalarFieldEnum = {
+  id: 'id',
+  key: 'key',
+  title: 'title',
+  description: 'description',
+  branch: 'branch',
+  metric_key: 'metric_key',
+  target: 'target',
+  sort_order: 'sort_order',
+  is_active: 'is_active',
+  created_at: 'created_at',
+  updated_at: 'updated_at',
+  reward_ttp: 'reward_ttp',
+  reward_cosmetic_key: 'reward_cosmetic_key',
+  reward_cosmetic_type: 'reward_cosmetic_type',
+  reward_consumable_key: 'reward_consumable_key',
+  reward_consumable_qty: 'reward_consumable_qty'
+};
+
+exports.Prisma.User_missionsScalarFieldEnum = {
+  id: 'id',
+  user_id: 'user_id',
+  mission_id: 'mission_id',
+  progress: 'progress',
+  is_completed: 'is_completed',
+  completed_at: 'completed_at',
+  claimed_at: 'claimed_at',
+  popup_shown_at: 'popup_shown_at',
+  created_at: 'created_at',
+  updated_at: 'updated_at'
+};
+
+exports.Prisma.Action_now_seenScalarFieldEnum = {
+  id: 'id',
+  user_id: 'user_id',
+  action_key: 'action_key',
+  seen_at: 'seen_at'
+};
+
 exports.Prisma.Ttp_ledgerScalarFieldEnum = {
   id: 'id',
   user_id: 'user_id',
@@ -420,6 +470,61 @@ exports.Prisma.Monthly_prediction_reward_popupsScalarFieldEnum = {
   meta: 'meta',
   created_at: 'created_at',
   seen_at: 'seen_at'
+};
+
+exports.Prisma.Ttp_bet_marketsScalarFieldEnum = {
+  id: 'id',
+  league_id: 'league_id',
+  match_id: 'match_id',
+  market_key: 'market_key',
+  status: 'status',
+  closes_at: 'closes_at',
+  settled_at: 'settled_at',
+  winning_option_key: 'winning_option_key',
+  created_at: 'created_at'
+};
+
+exports.Prisma.Ttp_betsScalarFieldEnum = {
+  id: 'id',
+  market_id: 'market_id',
+  user_id: 'user_id',
+  option_key: 'option_key',
+  stake_ttp: 'stake_ttp',
+  created_at: 'created_at',
+  updated_at: 'updated_at'
+};
+
+exports.Prisma.Ttp_house_bet_marketsScalarFieldEnum = {
+  id: 'id',
+  league_id: 'league_id',
+  match_id: 'match_id',
+  market_key: 'market_key',
+  status: 'status',
+  closes_at: 'closes_at',
+  settled_at: 'settled_at',
+  winning_option_key: 'winning_option_key',
+  created_at: 'created_at'
+};
+
+exports.Prisma.Ttp_house_bet_slipsScalarFieldEnum = {
+  id: 'id',
+  league_id: 'league_id',
+  match_id: 'match_id',
+  user_id: 'user_id',
+  stake_ttp: 'stake_ttp',
+  odds_total: 'odds_total',
+  status: 'status',
+  placed_at: 'placed_at',
+  settled_at: 'settled_at',
+  payout_ttp: 'payout_ttp'
+};
+
+exports.Prisma.Ttp_house_bet_legsScalarFieldEnum = {
+  id: 'id',
+  slip_id: 'slip_id',
+  market_id: 'market_id',
+  option_key: 'option_key',
+  odds: 'odds'
 };
 
 exports.Prisma.Shop_itemsScalarFieldEnum = {
@@ -534,8 +639,16 @@ exports.Prisma.ModelName = {
   achievements: 'achievements',
   user_achievements: 'user_achievements',
   user_cosmetics: 'user_cosmetics',
+  missions: 'missions',
+  user_missions: 'user_missions',
+  action_now_seen: 'action_now_seen',
   ttp_ledger: 'ttp_ledger',
   monthly_prediction_reward_popups: 'monthly_prediction_reward_popups',
+  ttp_bet_markets: 'ttp_bet_markets',
+  ttp_bets: 'ttp_bets',
+  ttp_house_bet_markets: 'ttp_house_bet_markets',
+  ttp_house_bet_slips: 'ttp_house_bet_slips',
+  ttp_house_bet_legs: 'ttp_house_bet_legs',
   shop_items: 'shop_items',
   user_consumable_stacks: 'user_consumable_stacks',
   user_consumable_activations: 'user_consumable_activations'

@@ -2,21 +2,14 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import * as dotenv from "dotenv";
-import pg from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./generated/client/index.js";
 import { generalLimiter } from "./middlewares/rateLimiters.js";
 import { createLogger } from "./utils/logger.js";
+import { prisma } from "./db.js";
 
 dotenv.config();
 
 const app = express();
 const log = createLogger("server");
-
-const connectionString = process.env.DATABASE_URL;
-const pool = new pg.Pool({ connectionString });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
 
 // Detrás de proxies (Railway, etc.) Express debe confiar en X-Forwarded-For
 // para que express-rate-limit pueda identificar bien al cliente.
@@ -44,9 +37,12 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import predictionRoutes from "./routes/predictionRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import achievementRoutes from "./routes/achievementRoutes.js";
+import missionRoutes from "./routes/missionRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import economyRoutes from "./routes/economyRoutes.js";
 import shopRoutes from "./routes/shopRoutes.js";
+import betRoutes from "./routes/betRoutes.js";
+import actionNowRoutes from "./routes/actionNowRoutes.js";
 
 app.use("/api/auth", authRoutes);
 app.use("/api/webhooks", webhookRoutes);
@@ -56,8 +52,11 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/predictions", predictionRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/achievements", achievementRoutes);
+app.use("/api/missions", missionRoutes);
 app.use("/api/economy", economyRoutes);
 app.use("/api/shop", shopRoutes);
+app.use("/api/bets", betRoutes);
+app.use("/api/actions", actionNowRoutes);
 
 app.get("/health", (req, res) => {
   res.json({
@@ -65,6 +64,26 @@ app.get("/health", (req, res) => {
     project: "Tercer Tiempo",
     timestamp: new Date().toISOString(),
   });
+});
+
+app.get("/api/health", async (req, res) => {
+  try {
+    // Ping DB (si falla, es crítico para el deploy/monitor).
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      ok: true,
+      status: "online",
+      db: "ok",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(503).json({
+      ok: false,
+      status: "degraded",
+      db: "error",
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

@@ -21,10 +21,6 @@ import * as Sharing from "expo-sharing";
 import { ShareableHonorsCard } from "../../../../src/components/share/ShareableHonorsCard";
 import { ShareButton } from "../../../../src/components/share/ShareButton";
 import { MedalsInfoButton } from "../../../../src/components/medals/MedalsInfoButton";
-import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
-import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
-import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
-import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 
 // --- CONSTANTES (Iguales a table.tsx) ---
 const FRAME_COLORS: Record<string, string> = {
@@ -50,17 +46,6 @@ type HonorStats = {
 
 const HONOR_COL_WIDTH = 45;
 
-const HONORS_COACHMARK_STEPS = [
-  {
-    title: "Medallero histórico",
-    body: "Acá se explica el acumulado de medallas de la liga. El ícono (i) abre un glosario con el significado de cada medalla y cómo se gana.",
-  },
-  {
-    title: "Ranking de medallas",
-    body: "Cada jugador con sus MVPs, Fantasmas, Troncos, Duelos y Prode. Tocá una columna para ordenar o un jugador para ver su perfil.",
-  },
-];
-
 export default function HonorsRankingScreen() {
   const router = useRouter();
   const params = useGlobalSearchParams<{ leagueId?: string }>();
@@ -71,25 +56,6 @@ export default function HonorsRankingScreen() {
   const [sortField, setSortField] = useState<keyof HonorStats>("mvp_count");
   const [sortDirection, setSortDirection] = useState<"desc" | "asc">("desc");
 
-  const { shouldShow: showHonorsCoachmark, markSeen: markHonorsCoachmark } =
-    useCoachmark(CoachmarkKeys.HONORS);
-  const [coachmarkStep, setCoachmarkStep] = useState(-1);
-  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
-  const canShowCoachmark = useCoachmarkReady(
-    showHonorsCoachmark && !dismissedThisSession,
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      setDismissedThisSession(false);
-      return () => {
-        setDismissedThisSession(true);
-        setCoachmarkStep(-1);
-        setTargetFrame(null);
-      };
-    }, []),
-  );
 
   useEffect(() => {
     if (leagueId) fetchHonors();
@@ -202,34 +168,11 @@ export default function HonorsRankingScreen() {
         </View>
       )}
 
-      {canShowCoachmark && (
-        <CoachmarkModal
-          visible={true}
-          steps={HONORS_COACHMARK_STEPS}
-          onFinish={() => {
-            setDismissedThisSession(true);
-            setCoachmarkStep(-1);
-            setTargetFrame(null);
-            markHonorsCoachmark();
-          }}
-          onStepChange={(step) => {
-            setCoachmarkStep(step);
-            if (step === -1) setTargetFrame(null);
-          }}
-          targetFrame={targetFrame}
-        />
-      )}
-
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 0}
-            style={{ marginBottom: 16 }}
-            onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
-          >
-            <View style={styles.infoCard}>
+          <View style={[styles.infoCard, { marginBottom: 16 }]}>
               <View style={[styles.infoCardHeader, { flexDirection: "row", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }]}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <Ionicons name="ribbon-outline" size={14} color="#9CA3AF" />
@@ -241,13 +184,8 @@ export default function HonorsRankingScreen() {
                 Acumulado de medallas obtenidas en todos los partidos de la liga.
               </Text>
             </View>
-          </CoachmarkHighlight>
 
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 1}
-            style={{ marginBottom: 8 }}
-            onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
-          >
+          <View style={{ marginBottom: 8 }}>
             <View style={styles.sectionHeaderBox}>
               <Text style={styles.sectionHeader}>RANKING DE HONORES</Text>
             </View>
@@ -415,7 +353,7 @@ export default function HonorsRankingScreen() {
             })
           )}
             </View>
-          </CoachmarkHighlight>
+          </View>
 
         <ShareButton
           onPress={handleShare}

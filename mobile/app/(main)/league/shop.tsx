@@ -43,6 +43,9 @@ type TtpSummaryResponse = {
     canClaim: boolean;
     remainingMs: number;
     lastClaimAt: string | null;
+    streak?: number;
+    maxAmount?: number;
+    daysToMax?: number;
   };
 };
 
@@ -91,6 +94,7 @@ export default function ShopScreen() {
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [dailyAmount, setDailyAmount] = useState<number>(20);
   const [dailyRemainingMs, setDailyRemainingMs] = useState<number>(0);
+  const [dailyStreak, setDailyStreak] = useState<number>(0);
   const [claimingDaily, setClaimingDaily] = useState(false);
 
   const load = useCallback(async () => {
@@ -104,6 +108,7 @@ export default function ShopScreen() {
       if (ttpRes.data.dailyFree) {
         setDailyAmount(Number(ttpRes.data.dailyFree.amount ?? 20));
         setDailyRemainingMs(Math.max(0, Number(ttpRes.data.dailyFree.remainingMs ?? 0)));
+        setDailyStreak(Math.max(0, Number(ttpRes.data.dailyFree.streak ?? 0)));
       }
       setItems(shopRes.data.items ?? []);
     } catch (e) {
@@ -148,10 +153,12 @@ export default function ShopScreen() {
         amount: number;
         balanceAfter: number;
         nextClaimInMs: number;
+        streakAfter?: number;
       }>("/economy/ttp/daily-free/claim", {});
       setBalance(res.data.balanceAfter);
       ttp?.animateGain({ amount: res.data.amount, balanceAfter: res.data.balanceAfter });
       setDailyRemainingMs(Math.max(0, Number(res.data.nextClaimInMs ?? 0)));
+      if (typeof res.data.streakAfter === "number") setDailyStreak(Math.max(0, res.data.streakAfter));
       showToast(`Reclamaste +${res.data.amount} TTP gratis`, "success");
     } catch (e: unknown) {
       const data = (e as { response?: { data?: { error?: string; remainingMs?: number } } })?.response?.data;
@@ -176,7 +183,7 @@ export default function ShopScreen() {
     }
   };
 
-  const buy = async (item: ShopItem) => {
+  const buyNow = async (item: ShopItem) => {
     if (item.itemType === "COSMETIC" && item.ownedCosmetic) return;
     setBuyingId(item.id);
     try {
@@ -205,12 +212,39 @@ export default function ShopScreen() {
     }
   };
 
+  const confirmBuy = (item: ShopItem) => {
+    if (buyingId) return;
+    if (item.itemType === "COSMETIC" && item.ownedCosmetic) return;
+    if (balance !== null && balance < item.priceTtp) return;
+
+    showAlert(
+      "Confirmar compra",
+      `¿Querés comprar "${item.displayName}" por ${item.priceTtp} TTP?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Comprar", style: "default", onPress: () => buyNow(item) },
+      ],
+      "warning",
+    );
+  };
+
   const consumables = useMemo(
     () => items.filter((i) => i.itemType === "CONSUMABLE"),
     [items],
   );
   const cosmetics = useMemo(
-    () => items.filter((i) => i.itemType === "COSMETIC"),
+    () =>
+      items.filter((i) => {
+        if (i.itemType !== "COSMETIC") return false;
+        // v0.2: no mostrar "Marco dorado" en tienda
+        const k = String(i.key ?? "").toLowerCase();
+        const name = String(i.displayName ?? "").toLowerCase();
+        const cosmeticKey = String(i.cosmeticKey ?? "").toLowerCase();
+        if (k === "frame_gold_shop") return false;
+        if (name.includes("marco dorado")) return false;
+        if (cosmeticKey === "gold") return false;
+        return true;
+      }),
     [items],
   );
 
@@ -306,7 +340,7 @@ export default function ShopScreen() {
           <Text style={styles.itemPriceUnit}>TTP</Text>
           <TouchableOpacity
             style={[styles.buyPill, disabled && styles.buyPillDisabled]}
-            onPress={() => buy(item)}
+            onPress={() => confirmBuy(item)}
             disabled={disabled}
             activeOpacity={0.85}
           >
@@ -431,8 +465,8 @@ export default function ShopScreen() {
             ) : cosmetics.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Ionicons name="color-palette-outline" size={40} color={Colors.accentGold} />
-                <Text style={styles.emptyTitle}>Nada por ahora</Text>
-                <Text style={styles.emptyBody}>Pronto vas a poder personalizar tu perfil.</Text>
+                <Text style={styles.emptyTitle}>Por ahora no hay</Text>
+                <Text style={styles.emptyBody}>En breve vas a tener cosméticos nuevos para tu perfil.</Text>
               </View>
             ) : (
               <View style={styles.listCard}>
@@ -448,7 +482,9 @@ export default function ShopScreen() {
               <View style={styles.dailyFreeHead}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.dailyFreeTitle}>TTP gratis diario</Text>
-                  <Text style={styles.dailyFreeSub}>Reclamá +{dailyAmount} TTP cada 24 horas.</Text>
+                  <Text style={styles.dailyFreeSub}>
+                    Racha: {dailyStreak} día{dailyStreak === 1 ? "" : "s"} · Próximo: +{dailyAmount} TTP
+                  </Text>
                 </View>
                 <View style={styles.dailyPill}>
                   <Text style={styles.dailyPillText}>+{dailyAmount}</Text>

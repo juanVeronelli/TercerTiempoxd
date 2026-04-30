@@ -1,4 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { AppState, type AppStateStatus } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import apiClient from "../api/apiClient";
 import { TtpGainOverlay } from "../components/ui/TtpGainOverlay";
 
@@ -20,10 +22,18 @@ export function TtpProvider({ children }: { children: React.ReactNode }) {
     amount: 0,
   });
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
+      // Evitar requests inútiles si no hay sesión.
+      const token = await SecureStore.getItemAsync("userToken");
+      if (!token) {
+        setBalance(null);
+        return;
+      }
       const res = await apiClient.get<{ balance: number }>("/economy/ttp");
       setBalance(typeof res.data?.balance === "number" ? res.data.balance : null);
     } catch {
@@ -36,11 +46,45 @@ export function TtpProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const stopPolling = () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+    const startPolling = async () => {
+      if (pollRef.current) return;
+      const token = await SecureStore.getItemAsync("userToken");
+      if (!token) {
+        stopPolling();
+        setBalance(null);
+        return;
+      }
+      pollRef.current = setInterval(() => {
+        refresh();
+      }, 25_000);
+    };
+
+    // Primer refresh (si hay sesión).
     refresh();
-    const id = setInterval(() => {
-      refresh();
-    }, 25_000);
-    return () => clearInterval(id);
+    void startPolling();
+
+    const sub = AppState.addEventListener("change", (next) => {
+      const prev = appStateRef.current;
+      appStateRef.current = next;
+      if (prev.match(/inactive|background/) && next === "active") {
+        refresh();
+        void startPolling();
+      }
+      if (next.match(/inactive|background/)) {
+        stopPolling();
+      }
+    });
+
+    return () => {
+      sub.remove();
+      stopPolling();
+    };
   }, [refresh]);
 
   const animateGain = useCallback(

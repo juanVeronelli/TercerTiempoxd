@@ -148,6 +148,36 @@ export const uploadProfilePicture = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * PUT /auth/push-token
+ * Registra el Expo Push Token del dispositivo (notificaciones en el centro del sistema).
+ * Debe llamarse desde la app con build nativo / dev client; no aplica a Expo Go.
+ */
+export const registerExpoPushToken = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return sendError(res, 401, { error: "Unauthorized" });
+    }
+
+    const raw = (req.body as { expoPushToken?: unknown })?.expoPushToken;
+    if (typeof raw !== "string") {
+      return sendError(res, 400, { error: "expoPushToken inválido" });
+    }
+
+    const token = raw.trim();
+    await prisma.users.update({
+      where: { id: userId },
+      data: { expo_push_token: token.length > 0 ? token : null },
+    });
+
+    return res.json({ ok: true });
+  } catch (error) {
+    log.errorWithErr("registerExpoPushToken failed", error, { userId: req.user?.userId });
+    return sendError(res, 500, { error: "No se pudo guardar el token de notificaciones" });
+  }
+};
+
 export const updateProfileData = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.userId;

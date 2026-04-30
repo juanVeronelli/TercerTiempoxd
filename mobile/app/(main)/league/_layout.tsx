@@ -1,7 +1,5 @@
-import { useEffect } from "react";
 import { Tabs, usePathname, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import Constants from "expo-constants";
 import { Colors } from "../../../src/constants/Colors";
 import { LeagueProvider, useLeagueContext } from "../../../src/context/LeagueContext";
 
@@ -144,13 +142,6 @@ function LeagueTabsContent() {
 }
 
 export default function LeagueTabsLayout() {
-  useEffect(() => {
-    if (Constants.appOwnership === "expo") return;
-    import("../../../src/services/pushTokenService").then((m) =>
-      m.registerPushToken(),
-    );
-  }, []);
-
   return (
     <LeagueProvider>
       <LeagueTabsContent />

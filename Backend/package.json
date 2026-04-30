@@ -12,12 +12,26 @@
     "db:ttp": "prisma db execute --file prisma/migrations/add_ttp_economy_shop.sql",
     "db:ttp-welcome-500": "prisma db execute --file prisma/migrations/ttp_welcome_bonus_default_500.sql",
     "db:ttp-default-0": "prisma db execute --file prisma/migrations/ttp_balance_default_back_to_0.sql",
+    "db:daily-free-streak": "prisma db execute --file prisma/migrations/add_daily_free_ttp_streak.sql",
     "db:monthly-reward-popup": "prisma db execute --file prisma/migrations/add_monthly_prediction_reward_popups.sql && prisma db execute --file prisma/migrations/alter_monthly_prediction_reward_popups_add_meta.sql",
+    "db:ttp-bets": "prisma db execute --file prisma/migrations/add_ttp_bets_mvp.sql",
+    "db:ttp-house-bets": "prisma db execute --file prisma/migrations/add_ttp_house_bets.sql",
+    "db:match-player-flags": "prisma db execute --file prisma/migrations/add_match_player_flags_injury_left_early.sql",
+    "db:match-confirmed-at": "prisma db execute --file prisma/migrations/add_match_player_confirmed_at.sql",
+    "db:match-cached-flags": "prisma db execute --file prisma/migrations/add_match_player_cached_flags.sql",
+    "db:missions": "prisma db execute --file prisma/migrations/add_missions_system.sql",
+    "db:shop-prices-balanced": "prisma db execute --file prisma/migrations/update_shop_consumable_prices_balanced.sql",
+    "db:action-now": "prisma db execute --file prisma/migrations/add_action_now_seen.sql",
+    "db:perf-indexes": "prisma db execute --file prisma/migrations/add_perf_indexes.sql",
+    "db:scale-indexes": "prisma db execute --file prisma/migrations/add_scale_indexes.sql",
     "db:scheduled-rules": "prisma db execute --file prisma/migrations/add_scheduled_match_rules.sql",
+    "db:expo-push-token-text": "prisma db execute --file prisma/migrations/expo_push_token_text.sql",
     "seed:test": "tsx scripts/seed-test-users.ts",
     "seed:matches": "tsx scripts/seed-matches.ts",
     "test": "cross-env NODE_ENV=test jest --runInBand --forceExit",
-    "test:ci": "cross-env NODE_ENV=test jest --runInBand --ci --forceExit"
+    "test:ci": "cross-env NODE_ENV=test jest --runInBand --ci --forceExit",
+    "e2e:house-bets": "tsx scripts/e2e-house-bets.ts",
+    "e2e:missions": "tsx scripts/e2e-missions.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

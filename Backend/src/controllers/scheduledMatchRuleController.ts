@@ -6,6 +6,7 @@ import { validateBody } from "../utils/validate.js";
 import { z } from "zod";
 import { isLeagueStaffRole } from "../constants/domain.js";
 import { createLogger } from "../utils/logger.js";
+import { ensureNextScheduledMatchForRule } from "../services/ScheduledMatchRuleService.js";
 
 const log = createLogger("scheduledMatchRuleController");
 
@@ -180,6 +181,14 @@ export async function createScheduledRule(req: Request, res: Response) {
         convoked_user_ids: open ? Prisma.DbNull : (convoked as any),
       },
     });
+
+    // Catch-up inicial: si el próximo partido objetivo todavía no existe, crearlo ahora.
+    // (Evita que el admin tenga que crear el primer match a mano.)
+    try {
+      await ensureNextScheduledMatchForRule(created.id, new Date());
+    } catch (err) {
+      log.errorWithErr("ensureNextScheduledMatchForRule failed", err, { leagueId, ruleId: created.id, userId });
+    }
 
     return res.status(201).json({ message: "Regla creada", rule: created });
   } catch (err) {

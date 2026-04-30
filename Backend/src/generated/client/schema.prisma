@@ -34,8 +34,8 @@ model users {
   resetPasswordExpires DateTime?
   acceptsMarketing     Boolean   @default(false)
 
-  // Push notifications (Expo)
-  expo_push_token       String? @db.VarChar(255)
+  // Push notifications (Expo) — el token completo puede superar 255 caracteres
+  expo_push_token       String? @db.Text
   notifications_enabled Boolean @default(true)
 
   // Relaciones existentes
@@ -73,10 +73,20 @@ model users {
    */
   ttp_balance Int @default(0)
 
+  /**
+   * Racha de reclamo diario TTP (tienda). Se resetea si corta un día.
+   */
+  daily_free_ttp_streak        Int       @default(0)
+  daily_free_ttp_last_claim_at DateTime? @db.Timestamptz(6)
+
   ttp_ledger                       ttp_ledger[]
   user_consumable_stacks           user_consumable_stacks[]
   user_consumable_activations      user_consumable_activations[]
   monthly_prediction_reward_popups monthly_prediction_reward_popups[]
+  ttp_bets                         ttp_bets[]
+  ttp_house_bet_slips              ttp_house_bet_slips[]
+  user_missions                    user_missions[]
+  action_now_seen                  action_now_seen[]
 
   // --- ESPECTADORES POR PARTIDO ---
   match_spectators match_spectators[]
@@ -118,6 +128,9 @@ model leagues {
   prediction_groups                prediction_groups[]
   user_consumable_activations      user_consumable_activations[]
   monthly_prediction_reward_popups monthly_prediction_reward_popups[]
+  ttp_bet_markets                  ttp_bet_markets[]
+  ttp_house_bet_markets            ttp_house_bet_markets[]
+  ttp_house_bet_slips              ttp_house_bet_slips[]
 
   // --- REGLAS DE PARTIDOS PROGRAMADOS ---
   scheduled_match_rules scheduled_match_rules[]
@@ -208,7 +221,10 @@ model matches {
   user_consumable_activations user_consumable_activations[]
 
   // --- RELACIÓN CON DUELOS ---
-  duels duels[]
+  duels                 duels[]
+  ttp_bet_markets       ttp_bet_markets[]
+  ttp_house_bet_markets ttp_house_bet_markets[]
+  ttp_house_bet_slips   ttp_house_bet_slips[]
 
   // Ocurrencias (idempotencia) que apuntan a este match
   scheduled_occurrences scheduled_match_rule_occurrences[] @relation("scheduled_occurrence_match")
@@ -282,11 +298,24 @@ model scheduled_match_rule_occurrences {
 }
 
 model match_players {
-  match_id          String   @db.Uuid
-  user_id           String   @db.Uuid
-  team              String?  @default("UNASSIGNED") @db.VarChar(10)
-  has_confirmed     Boolean? @default(false)
-  self_vote_overall Decimal? @db.Decimal(3, 1)
+  match_id          String    @db.Uuid
+  user_id           String    @db.Uuid
+  team              String?   @default("UNASSIGNED") @db.VarChar(10)
+  has_confirmed     Boolean?  @default(false)
+  /**
+   * Momento en el que el usuario confirmó asistencia (para misiones/racha).
+   */
+  confirmed_at      DateTime? @db.Timestamptz(6)
+  /**
+   * Cache de métricas derivadas (para Misiones / escala).
+   */
+  was_first_confirm Boolean   @default(false)
+  is_top_defense    Boolean   @default(false)
+  is_top_pace       Boolean   @default(false)
+  is_top_technique  Boolean   @default(false)
+  is_top_physical   Boolean   @default(false)
+  is_top_attack     Boolean   @default(false)
+  self_vote_overall Decimal?  @db.Decimal(3, 1)
 
   // --- PUNTAJES DE ESTE PARTIDO ---
   match_rating    Decimal? @db.Decimal(3, 1)
@@ -298,6 +327,12 @@ model match_players {
 
   // --- PRODE: puntos de predicciones en esta fecha (resueltos al cerrar partido) ---
   prediction_points Int? @default(0)
+
+  /**
+   * Flags para mercados de apuestas verificables al cierre
+   */
+  injured    Boolean @default(false)
+  left_early Boolean @default(false)
 
   // Relaciones
   matches matches @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -604,6 +639,86 @@ model user_cosmetics {
 }
 
 // ---------------------------------------------------------
+// MISIONES (FREE + PRO) + RECOMPENSAS (TTP / COSMÉTICOS / CONSUMIBLES)
+// ---------------------------------------------------------
+model missions {
+  id          String   @id @default(uuid()) @db.Uuid
+  /**
+   * Clave estable (la vas a usar en el catálogo).
+   */
+  key         String   @unique @db.VarChar(80)
+  title       String   @db.VarChar(120)
+  description String?  @db.Text
+  /**
+   * FREE (básica) | PRO
+   */
+  branch      String   @default("FREE") @db.VarChar(10)
+  /**
+   * Cómo se mide (ej: MATCHES_PLAYED, BETS_PLACED, etc.).
+   */
+  metric_key  String   @db.VarChar(50)
+  target      Decimal  @default(1) @db.Decimal(10, 2)
+  sort_order  Int      @default(0)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @updatedAt @db.Timestamptz(6)
+
+  // Recompensas (componibles)
+  reward_ttp            Int     @default(0)
+  reward_cosmetic_key   String? @db.VarChar(50)
+  reward_cosmetic_type  String? @default("FRAME") @db.VarChar(20)
+  reward_consumable_key String? @db.VarChar(50)
+  reward_consumable_qty Int?    @default(1)
+
+  user_missions user_missions[]
+}
+
+model user_missions {
+  id             String    @id @default(uuid()) @db.Uuid
+  user_id        String    @db.Uuid
+  mission_id     String    @db.Uuid
+  /**
+   * Progreso acumulado (barrita).
+   */
+  progress       Decimal   @default(0) @db.Decimal(10, 2)
+  is_completed   Boolean   @default(false)
+  completed_at   DateTime? @db.Timestamptz(6)
+  /**
+   * Reclamo manual del premio
+   */
+  claimed_at     DateTime? @db.Timestamptz(6)
+  /**
+   * Popup 1 vez al entrar a Misiones
+   */
+  popup_shown_at DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @updatedAt @db.Timestamptz(6)
+
+  users    users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  missions missions @relation(fields: [mission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, mission_id])
+  @@index([user_id])
+  @@index([mission_id])
+  @@index([user_id, is_completed, claimed_at])
+}
+
+// ---------------------------------------------------------
+// "TU ACCIÓN AHORA" (cards accionables con estado visto por usuario)
+// ---------------------------------------------------------
+model action_now_seen {
+  id         String   @id @default(uuid()) @db.Uuid
+  user_id    String   @db.Uuid
+  action_key String   @db.VarChar(140)
+  seen_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, action_key])
+  @@index([user_id, seen_at])
+}
+
+// ---------------------------------------------------------
 // ECONOMÍA TTP (Tercer Tiempo Points) + TIENDA
 // ---------------------------------------------------------
 
@@ -642,6 +757,125 @@ model monthly_prediction_reward_popups {
 
   @@unique([user_id, league_id, period_key])
   @@index([user_id, league_id, seen_at])
+}
+
+// ---------------------------------------------------------
+// APUESTAS (TTP)
+// ---------------------------------------------------------
+
+model ttp_bet_markets {
+  id                 String    @id @default(uuid()) @db.Uuid
+  league_id          String    @db.Uuid
+  match_id           String    @db.Uuid
+  /**
+   * MVP (por ahora)
+   */
+  market_key         String    @db.VarChar(40)
+  status             String    @default("OPEN") @db.VarChar(16) // OPEN | CLOSED | SETTLED | VOID
+  closes_at          DateTime? @db.Timestamptz(6)
+  settled_at         DateTime? @db.Timestamptz(6)
+  /**
+   * Para MVP: user_id (uuid) del ganador.
+   */
+  winning_option_key String?   @db.VarChar(80)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  leagues leagues    @relation(fields: [league_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches matches    @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  bets    ttp_bets[]
+
+  @@unique([match_id, market_key])
+  @@index([league_id, match_id, status])
+}
+
+model ttp_bets {
+  id         String   @id @default(uuid()) @db.Uuid
+  market_id  String   @db.Uuid
+  user_id    String   @db.Uuid
+  /**
+   * Para MVP: user_id (uuid) apostado
+   */
+  option_key String   @db.VarChar(80)
+  stake_ttp  Int
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @updatedAt @db.Timestamptz(6)
+
+  ttp_bet_markets ttp_bet_markets @relation(fields: [market_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([market_id, user_id])
+  @@index([market_id])
+  @@index([user_id])
+}
+
+// ---------------------------------------------------------
+// APUESTAS (TTP) - CONTRA LA CASA (ODDS DINÁMICAS + COMBINADAS)
+// ---------------------------------------------------------
+
+model ttp_house_bet_markets {
+  id                 String    @id @default(uuid()) @db.Uuid
+  league_id          String    @db.Uuid
+  match_id           String    @db.Uuid
+  /**
+   * MVP | TRONCO | FANTASMA | DEFENSE_TOP | DEFENSE_BOTTOM
+   */
+  market_key         String    @db.VarChar(40)
+  status             String    @default("OPEN") @db.VarChar(16) // OPEN | CLOSED | SETTLED | VOID
+  closes_at          DateTime? @db.Timestamptz(6)
+  settled_at         DateTime? @db.Timestamptz(6)
+  /**
+   * Para mercados por jugador: user_id ganador (uuid).
+   */
+  winning_option_key String?   @db.VarChar(80)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+
+  leagues leagues              @relation(fields: [league_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches matches              @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  legs    ttp_house_bet_legs[]
+
+  @@unique([match_id, market_key])
+  @@index([league_id, match_id, status])
+}
+
+model ttp_house_bet_slips {
+  id         String    @id @default(uuid()) @db.Uuid
+  league_id  String    @db.Uuid
+  match_id   String    @db.Uuid
+  user_id    String    @db.Uuid
+  stake_ttp  Int
+  /**
+   * Cuota total decimal del slip (producto de legs).
+   */
+  odds_total Decimal   @db.Decimal(12, 6)
+  status     String    @default("OPEN") @db.VarChar(16) // OPEN | WON | LOST | VOID
+  placed_at  DateTime  @default(now()) @db.Timestamptz(6)
+  settled_at DateTime? @db.Timestamptz(6)
+  payout_ttp Int? // si WON
+
+  leagues leagues              @relation(fields: [league_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  matches matches              @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users   users                @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  legs    ttp_house_bet_legs[]
+
+  @@index([user_id, placed_at])
+  @@index([match_id, status])
+}
+
+model ttp_house_bet_legs {
+  id         String  @id @default(uuid()) @db.Uuid
+  slip_id    String  @db.Uuid
+  market_id  String  @db.Uuid
+  option_key String  @db.VarChar(80)
+  /**
+   * Cuota decimal del leg al momento de apostar.
+   */
+  odds       Decimal @db.Decimal(12, 6)
+
+  ttp_house_bet_slips   ttp_house_bet_slips   @relation(fields: [slip_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ttp_house_bet_markets ttp_house_bet_markets @relation(fields: [market_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([slip_id, market_id])
+  @@index([market_id])
 }
 
 model shop_items {

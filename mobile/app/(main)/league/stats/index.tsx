@@ -29,10 +29,6 @@ import apiClient from "../../../../src/api/apiClient";
 import { formatUserFacingError } from "../../../../src/api/apiErrors";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
-import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
-import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
-import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 import Svg, {
   Polygon,
   Line,
@@ -45,21 +41,6 @@ import { IconButton } from "../../../../src/components/ui/IconButton";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Color dorado para acentos PRO
 const PRO_GOLD = "#D4AF37";
-
-const STATS_COACHMARK_STEPS = [
-  {
-    title: "Tu racha",
-    body: "Acá ves tu racha: G (ganado), P (perdido), E (empatado). Son los últimos partidos que jugaste.",
-  },
-  {
-    title: "Promedios",
-    body: "Tu promedio histórico y el del mes. Compará cómo venís en el tiempo.",
-  },
-  {
-    title: "Historial reciente",
-    body: "Tocá cualquier partido para ver el detalle. Si tenés PRO, más abajo ves gráficos de tendencia y perfil técnico vs la liga.",
-  },
-];
 
 // --- Tu evolución PRO: partido a partido + superposición ---
 const CHART_PADDING = { left: 28, right: 10, top: 10, bottom: 22 };
@@ -513,25 +494,6 @@ export default function MyStatsScreen() {
 
   const matches = stats?.recentMatches ?? [];
   const isStatsLocked = matches.length === 0;
-  const { shouldShow: showStatsCoachmark, markSeen: markStatsCoachmark } =
-    useCoachmark(CoachmarkKeys.STATS);
-  const [coachmarkStep, setCoachmarkStep] = useState(-1);
-  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
-  const canShowCoachmark = useCoachmarkReady(
-    showStatsCoachmark && !dismissedThisSession,
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      setDismissedThisSession(false);
-      return () => {
-        setDismissedThisSession(true);
-        setCoachmarkStep(-1);
-        setTargetFrame(null);
-      };
-    }, []),
-  );
 
   if (loading)
     return (
@@ -573,23 +535,6 @@ export default function MyStatsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ScreenHeader title="MI RENDIMIENTO" showBack />
-      {canShowCoachmark && (
-        <CoachmarkModal
-          visible={true}
-          steps={STATS_COACHMARK_STEPS}
-          onFinish={() => {
-            setDismissedThisSession(true);
-            setCoachmarkStep(-1);
-            setTargetFrame(null);
-            markStatsCoachmark();
-          }}
-          onStepChange={(step) => {
-            setCoachmarkStep(step);
-            if (step === -1) setTargetFrame(null);
-          }}
-          targetFrame={targetFrame}
-        />
-      )}
 
       <ScrollView
         contentContainerStyle={styles.content}
@@ -614,12 +559,7 @@ export default function MyStatsScreen() {
         </View>
 
         {/* KPIS */}
-        <CoachmarkHighlight
-          highlighted={canShowCoachmark && coachmarkStep === 1}
-          style={{ marginBottom: 16 }}
-          onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
-        >
-          <View style={styles.kpiContainer}>
+        <View style={[styles.kpiContainer, { marginBottom: 16 }]}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabelAbove}>Promedio Histórico</Text>
               <View style={styles.kpiHeader}>
@@ -648,17 +588,11 @@ export default function MyStatsScreen() {
                 {stats?.monthAvg || "0.0"}
               </Text>
             </View>
-          </View>
-        </CoachmarkHighlight>
+        </View>
 
         {/* RACHA: G (Ganado), P (Perdido), E (Empatado) + Últimos N partidos */}
         {stats?.form && stats.form.length > 0 && (
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 0}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
-          >
-            <View style={styles.formContainer}>
+          <View style={[styles.formContainer, { marginBottom: 20 }]}>
               <Text style={styles.sectionHeader}>RACHA ACTUAL</Text>
               <View style={styles.formBubbles}>
                 {stats.form.map((res: string, i: number) => {
@@ -688,16 +622,11 @@ export default function MyStatsScreen() {
               <Text style={styles.formHint}>
                 Últimos {stats.form.length} partido{stats.form.length !== 1 ? "s" : ""}
               </Text>
-            </View>
-          </CoachmarkHighlight>
+          </View>
         )}
 
         {/* HISTORIAL */}
-        <CoachmarkHighlight
-          highlighted={canShowCoachmark && coachmarkStep === 2}
-          style={{ marginBottom: 8 }}
-          onMeasure={(frame) => coachmarkStep === 2 && setTargetFrame(frame)}
-        >
+        <View style={{ marginBottom: 8 }}>
           <View style={styles.sectionHeaderBox}>
             <Text style={styles.sectionHeader}>HISTORIAL RECIENTE</Text>
           </View>
@@ -811,7 +740,7 @@ export default function MyStatsScreen() {
             iconName="activity"
           />
         )}
-        </CoachmarkHighlight>
+        </View>
 
         <NativeAdCardWrapper
           style={{ marginTop: 20, marginBottom: 20 }}
@@ -831,14 +760,14 @@ export default function MyStatsScreen() {
             <View style={styles.proWidgetBody}>
               <View style={styles.proMetrics}>
                 <View style={styles.proMetricCol}>
-                  <Text style={styles.proMetricValue}>{stats?.historicalAvg ?? "—"}</Text>
+                  <Text style={[styles.proMetricValue, styles.proMetricHighlight]}>
+                    {stats?.historicalAvg ?? "—"}
+                  </Text>
                   <Text style={styles.proMetricLabel}>Tu promedio</Text>
                 </View>
                 <View style={styles.proMetricDivider} />
                 <View style={styles.proMetricCol}>
-                  <Text style={[styles.proMetricValue, styles.proMetricHighlight]}>
-                    {Number(leagueAvg.rating ?? 0).toFixed(1)}
-                  </Text>
+                  <Text style={styles.proMetricValue}>{Number(leagueAvg.rating ?? 0).toFixed(1)}</Text>
                   <Text style={styles.proMetricLabel}>Liga</Text>
                 </View>
                 <View style={styles.proMetricDivider} />

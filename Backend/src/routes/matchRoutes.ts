@@ -35,6 +35,7 @@ import {
   generateMatchDuel,
   getMatchDuel,
   claimMatchTtp,
+  adminSetPlayerFlags,
 } from "../controllers/matchController.js";
 
 const router = Router();
@@ -52,6 +53,7 @@ router.post("/:matchId/unconfirm", authenticateToken, unconfirmMatch);
 router.post("/:matchId/admin/confirm-player", authenticateToken, adminConfirmPlayer);
 router.post("/:matchId/admin/confirm-all", authenticateToken, adminConfirmAllPending);
 router.post("/:matchId/admin/remove-spectator", authenticateToken, adminRemoveSpectator);
+router.post("/:matchId/admin/player-flags", authenticateToken, adminSetPlayerFlags);
 router.post("/:matchId/signup", authenticateToken, signupMatch);
 router.post("/:matchId/unsignup", authenticateToken, unsignupMatch);
 router.post("/:matchId/spectate", authenticateToken, spectateMatch);

@@ -29,6 +29,9 @@ export type NotificationType =
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
+/** Mismo id que en la app: `setNotificationChannelAsync("default", ...)` */
+const ANDROID_CHANNEL_ID = "default";
+
 /**
  * Envía una notificación usando el Prisma proporcionado (válido para workers).
  */
@@ -78,21 +81,30 @@ async function sendPushIfEligible(
   const token = user.expo_push_token.trim();
   if (!token) return;
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     to: token,
     title,
     body,
-    sound: "default" as const,
+    sound: "default",
+    priority: "high",
+    // Android: sin channelId coherente con la app, el sistema puede no mostrar la notificación en el centro.
+    channelId: ANDROID_CHANNEL_ID,
     ...(data && Object.keys(data).length > 0 && { data }),
   };
 
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Accept-Encoding": "gzip, deflate",
+    "Content-Type": "application/json",
+  };
+  const accessToken = process.env.EXPO_ACCESS_TOKEN?.trim();
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   const res = await fetch(EXPO_PUSH_URL, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Accept-Encoding": "gzip, deflate",
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 

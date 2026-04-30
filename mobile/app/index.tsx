@@ -5,11 +5,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import { jwtDecode } from "jwt-decode";
 import { Colors } from "../src/constants/Colors";
-import {
-  ONBOARDING_RESET_VERSION,
-  ONBOARDING_RESET_VERSION_KEY,
-  ALL_COACHMARK_KEYS,
-} from "../src/constants/CoachmarkKeys";
 import { OnboardingSlider } from "../src/components/onboarding";
 
 const ONBOARDING_VIEWED_KEY = "@onboarding_viewed";
@@ -20,32 +15,18 @@ type UserToken = {
 };
 
 export default function Index() {
-  const [onboardingViewed, setOnboardingViewed] = useState<boolean | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [onboardingViewed, setOnboardingViewed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const init = async () => {
+    (async () => {
       try {
-        const storedVersion = await AsyncStorage.getItem(ONBOARDING_RESET_VERSION_KEY);
-        const version = storedVersion ? parseInt(storedVersion, 10) : 0;
-        if (version < ONBOARDING_RESET_VERSION) {
-          await AsyncStorage.multiRemove([
-            ...ALL_COACHMARK_KEYS,
-            ONBOARDING_VIEWED_KEY,
-          ]);
-          await AsyncStorage.setItem(
-            ONBOARDING_RESET_VERSION_KEY,
-            String(ONBOARDING_RESET_VERSION),
-          );
-        }
-        const viewed = await AsyncStorage.getItem(ONBOARDING_VIEWED_KEY);
-        setOnboardingViewed(viewed === "true");
-      } catch (error) {
-        console.error("Error checking onboarding:", error);
+        const v = await AsyncStorage.getItem(ONBOARDING_VIEWED_KEY);
+        setOnboardingViewed(v === "true");
+      } catch {
         setOnboardingViewed(true);
       }
-    };
-    init();
+    })();
   }, []);
 
   useEffect(() => {
@@ -88,13 +69,12 @@ export default function Index() {
     try {
       await AsyncStorage.setItem(ONBOARDING_VIEWED_KEY, "true");
       setOnboardingViewed(true);
-    } catch (error) {
-      console.error("Error saving onboarding flag:", error);
+    } catch {
       setOnboardingViewed(true);
     }
   };
 
-  // Loading inicial (onboarding o login)
+  // Loading inicial (onboarding)
   if (onboardingViewed === null) {
     return (
       <View
@@ -110,16 +90,11 @@ export default function Index() {
     );
   }
 
-  // Mostrar onboarding si aún no lo vio
   if (!onboardingViewed) {
-    return (
-      <OnboardingSlider
-        onComplete={handleOnboardingComplete}
-      />
-    );
+    return <OnboardingSlider onComplete={handleOnboardingComplete} />;
   }
 
-  // Onboarding visto: redirigir según login
+  // Loading inicial (login)
   if (isLoggedIn === null) {
     return (
       <View

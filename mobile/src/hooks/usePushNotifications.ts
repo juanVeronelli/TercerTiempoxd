@@ -1,30 +1,15 @@
 /**
- * usePushNotifications — solicita permisos, obtiene el Expo Push Token y configura listeners.
- *
- * Dependencias: recuerda instalar con:
- *   npx expo install expo-notifications expo-device
+ * usePushNotifications — solicita permisos, obtiene el Expo Push Token (no lo envía al backend;
+ * el registro unificado es registerExpoPushTokenWithBackend).
  */
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
-
-// Configuración global: si la app está abierta, la notificación igual muestra alerta y sonido
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldAnnotatePresentedNotification: true,
-  }),
-});
+import { ensureAndroidNotificationChannel } from "../notifications/pushSetup";
 
 /**
- * Hook que solicita permisos de push, obtiene el Expo Push Token y configura el canal en Android.
- * @returns expoPushToken — string del token para guardar en tu base de datos vinculado al usuario, o null si no está disponible
+ * @returns expoPushToken — o null si no aplica
  */
 export function usePushNotifications(): string | null {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
@@ -47,14 +32,7 @@ export function usePushNotifications(): string | null {
 
       if (finalStatus !== "granted" || !isMounted) return;
 
-      if (Platform.OS === "android") {
-        await Notifications.setNotificationChannelAsync("default", {
-          name: "Default",
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: "#FF231F7C",
-        });
-      }
+      await ensureAndroidNotificationChannel();
 
       try {
         const projectId =
@@ -62,7 +40,7 @@ export function usePushNotifications(): string | null {
           Constants.easConfig?.projectId;
 
         const tokenRes = await Notifications.getExpoPushTokenAsync(
-          projectId ? { projectId } : undefined
+          projectId ? { projectId } : undefined,
         );
         const token = tokenRes?.data ?? null;
         if (isMounted && token) {

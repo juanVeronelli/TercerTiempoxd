@@ -81,6 +81,7 @@ export async function signupToMatch(params: { matchId: string; userId: string })
         user_id: userId,
         team,
         has_confirmed: true,
+        confirmed_at: new Date(),
         match_rating: 0,
       },
     });

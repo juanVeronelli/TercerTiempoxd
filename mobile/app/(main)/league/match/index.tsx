@@ -22,10 +22,6 @@ import { NotificationBell } from "../../../../src/components/NotificationBell";
 import { ScreenHeader } from "../../../../src/components/ui/ScreenHeader";
 import { EmptyState } from "../../../../src/components/ui/EmptyState";
 import { Skeleton } from "../../../../src/components/ui/Skeleton";
-import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
-import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
-import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
-import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import * as Clipboard from "expo-clipboard";
@@ -60,26 +56,6 @@ export default function MatchScreen() {
   const [votingMatches, setVotingMatches] = useState<any[]>([]);
   const [recentResultsMatches, setRecentResultsMatches] = useState<any[]>([]);
 
-  const { shouldShow: showMatchCoachmark, markSeen: markMatchCoachmark } =
-    useCoachmark(CoachmarkKeys.MATCH);
-  const [coachmarkStep, setCoachmarkStep] = useState(-1);
-  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
-  const canShowCoachmark = useCoachmarkReady(
-    !loading && showMatchCoachmark && !dismissedThisSession,
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      setDismissedThisSession(false);
-      return () => {
-        setDismissedThisSession(true);
-        setCoachmarkStep(-1);
-        setTargetFrame(null);
-      };
-    }, []),
-  );
-
   const MATCH_ADMIN_STEPS = useMemo(
     () => [
       {
@@ -102,7 +78,6 @@ export default function MatchScreen() {
     ],
     [],
   );
-  const matchCoachmarkSteps = isAdmin ? MATCH_ADMIN_STEPS : MATCH_MEMBER_STEPS;
 
   const fetchData = async () => {
     try {
@@ -306,24 +281,6 @@ export default function MatchScreen() {
         showBack={false}
       />
 
-      {canShowCoachmark && (
-        <CoachmarkModal
-          visible={true}
-          steps={matchCoachmarkSteps}
-          onFinish={() => {
-            setDismissedThisSession(true);
-            setCoachmarkStep(-1);
-            setTargetFrame(null);
-            markMatchCoachmark();
-          }}
-          onStepChange={(step) => {
-            setCoachmarkStep(step);
-            if (step === -1) setTargetFrame(null);
-          }}
-          targetFrame={targetFrame}
-        />
-      )}
-
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -346,12 +303,7 @@ export default function MatchScreen() {
           >
             {/* HERO SECTION ORIGINAL */}
             {isAdmin ? (
-              <CoachmarkHighlight
-                highlighted={canShowCoachmark && coachmarkStep === 0}
-                style={{ marginBottom: 15 }}
-                onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
-              >
-                <View style={{ gap: 12 }}>
+              <View style={{ gap: 12, marginBottom: 15 }}>
                   <TouchableOpacity
                     style={styles.heroCardAdmin}
                     onPress={() => router.push("/(main)/league/match/create")}
@@ -410,7 +362,6 @@ export default function MatchScreen() {
                     </View>
                   </TouchableOpacity>
                 </View>
-              </CoachmarkHighlight>
             ) : (
               <View style={styles.heroCardMember}>
                 <View style={styles.leagueInfoContent}>
@@ -556,17 +507,7 @@ export default function MatchScreen() {
               </View>
             ))}
 
-            <CoachmarkHighlight
-              highlighted={
-                canShowCoachmark &&
-                (isAdmin ? coachmarkStep === 1 : coachmarkStep === 0)
-              }
-              style={{ marginBottom: 8 }}
-              onMeasure={(frame) =>
-                (isAdmin ? coachmarkStep === 1 : coachmarkStep === 0) &&
-                setTargetFrame(frame)
-              }
-            >
+            <View style={{ marginBottom: 8 }}>
               <View style={styles.sectionHeaderBox}>
                 <Text style={styles.sectionHeader}>
                   {isAdmin ? "ADMINISTRAR PARTIDOS" : "TU PRÓXIMO PARTIDO"}
@@ -640,7 +581,7 @@ export default function MatchScreen() {
                   iconName="calendar"
                 />
               )}
-            </CoachmarkHighlight>
+            </View>
           </Animated.View>
         )}
         <View style={{ height: 40 }} />

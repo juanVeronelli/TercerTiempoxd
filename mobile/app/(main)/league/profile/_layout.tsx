@@ -9,6 +9,10 @@ export default function ProfileLayout() {
         options={{ headerShown: false, title: "Mi Perfil" }}
       />
       <Stack.Screen
+        name="missions"
+        options={{ headerShown: false, title: "Misiones" }}
+      />
+      <Stack.Screen
         name="achievements"
         options={{ headerShown: false, title: "Logros" }}
       />

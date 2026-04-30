@@ -12,6 +12,7 @@ export function NotificationBell() {
 
   const fetchCount = async () => {
     try {
+      setLoading(true);
       const n = await getUnreadCount();
       setCount(n);
     } catch {
@@ -27,9 +28,7 @@ export function NotificationBell() {
     }, []),
   );
 
-  useEffect(() => {
-    fetchCount();
-  }, []);
+  // No hacemos fetch extra en mount: useFocusEffect ya cubre el primer render.
 
   const hasUnread = count != null && count > 0;
   const displayCount = count != null && count > 99 ? "99+" : String(count ?? 0);

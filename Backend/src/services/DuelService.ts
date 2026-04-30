@@ -1,5 +1,5 @@
 import type { Prisma } from "../generated/client/index.js";
-import { prisma } from "../server.js";
+import { prisma } from "../db.js";
 import { DomainError } from "../utils/domainError.js";
 import { createLogger } from "../utils/logger.js";
 

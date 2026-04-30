@@ -31,6 +31,30 @@ function nextWeekdayDate(fromDate: Date, targetWeekday: Weekday): Date {
   return d;
 }
 
+/**
+ * Variante "catch-up": permite "hoy" si todavía no pasó la hora target.
+ * Si hoy es el targetWeekday pero la hora ya pasó, devuelve el próximo (7 días).
+ */
+function nextOrSameWeekdayDate(now: Date, targetWeekday: Weekday, targetTimeHHmm: string): Date {
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayW = from.getDay() as Weekday;
+  const deltaRaw = (targetWeekday - todayW + 7) % 7;
+  if (deltaRaw !== 0) {
+    const d = new Date(from);
+    d.setDate(d.getDate() + deltaRaw);
+    return d;
+  }
+
+  // Hoy es el día target: sólo usar "hoy" si la hora todavía no pasó.
+  const todayAtTarget = withLocalTime(from, targetTimeHHmm);
+  if (todayAtTarget && todayAtTarget.getTime() > now.getTime()) return from;
+
+  // Caso contrario, próximo (7 días)
+  const d = new Date(from);
+  d.setDate(d.getDate() + 7);
+  return d;
+}
+
 function withLocalTime(dateOnly: Date, hhmm: string): Date | null {
   const t = parseTimeHHmm(hhmm);
   if (!t) return null;
@@ -61,6 +85,159 @@ async function getEligibleConvokedUserIds(leagueId: string, userIds: string[]): 
   return rows.map((r) => r.user_id);
 }
 
+type ScheduledRuleRow = {
+  id: string;
+  league_id: string;
+  created_by_user_id: string;
+  target_weekday: number;
+  target_time: string;
+  location_name: string | null;
+  price_per_player: unknown;
+  is_open_signup: boolean;
+  max_players: number | null;
+  match_mode: string | null;
+  convoked_user_ids: unknown;
+};
+
+async function ensureOccurrenceForRule(rule: ScheduledRuleRow, targetDay: Date): Promise<void> {
+  const matchDateTime = withLocalTime(targetDay, String(rule.target_time));
+  if (!matchDateTime) return;
+
+  const matchDayKey = toDateKey(targetDay);
+  const occurrenceKey = `rule:${rule.id}:${matchDayKey}`;
+
+  // Upsert ocurrencia para idempotencia, y si falta match, crearlo.
+  const created = await prisma.$transaction(async (tx) => {
+    const occDate = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate());
+
+    const occ = await tx.scheduled_match_rule_occurrences.upsert({
+      where: { rule_id_match_date: { rule_id: rule.id, match_date: occDate } },
+      create: { rule_id: rule.id, match_date: occDate, match_id: null },
+      update: {},
+      select: { id: true, match_id: true },
+    });
+
+    if (occ.match_id) return { matchId: occ.match_id, createdNow: false as const };
+
+    // Si ya existe un match con esta key, linkearlo y salir.
+    const existingMatch = await tx.matches.findUnique({
+      where: { scheduled_occurrence_key: occurrenceKey },
+      select: { id: true },
+    });
+    if (existingMatch?.id) {
+      await tx.scheduled_match_rule_occurrences.update({
+        where: { id: occ.id },
+        data: { match_id: existingMatch.id },
+      });
+      return { matchId: existingMatch.id, createdNow: false as const };
+    }
+
+    const isOpenSignup = rule.is_open_signup === true;
+    const convokedIdsRaw = isOpenSignup
+      ? []
+      : Array.isArray(rule.convoked_user_ids)
+        ? (rule.convoked_user_ids as string[])
+        : [];
+    const convokedIds = isOpenSignup ? [] : await getEligibleConvokedUserIds(rule.league_id, convokedIdsRaw);
+
+    const players = isOpenSignup
+      ? undefined
+      : convokedIds.map((id) => ({
+          id,
+          team: String(rule.match_mode ?? "INTERNAL").toUpperCase() === "EXTERNAL" ? "A" : "UNASSIGNED",
+        }));
+
+    const match = await tx.matches.create({
+      data: {
+        league_id: rule.league_id,
+        admin_id: rule.created_by_user_id,
+        location_name: rule.location_name ?? null,
+        date_time: matchDateTime,
+        price_per_player: (rule.price_per_player as any) ?? null,
+        status: "OPEN",
+        is_open_signup: isOpenSignup,
+        max_players: isOpenSignup ? (typeof rule.max_players === "number" ? rule.max_players : null) : null,
+        match_mode: String(rule.match_mode ?? "INTERNAL").toUpperCase() === "EXTERNAL" ? "EXTERNAL" : "INTERNAL",
+        team_a_score: 0,
+        team_b_score: 0,
+        scheduled_rule_id: rule.id,
+        scheduled_occurrence_key: occurrenceKey,
+        match_players: players
+          ? {
+              createMany: {
+                data: players.map((p) => ({
+                  user_id: p.id,
+                  team: p.team,
+                  has_confirmed: false,
+                  match_rating: 0,
+                })),
+              },
+            }
+          : undefined,
+      },
+      select: { id: true, league_id: true, date_time: true, location_name: true },
+    });
+
+    await tx.scheduled_match_rule_occurrences.update({
+      where: { id: occ.id },
+      data: { match_id: match.id },
+    });
+
+    return { matchId: match.id, createdNow: true as const, convokedIds, match };
+  });
+
+  // Notificaciones fuera de la tx (fire-and-forget)
+  if ((created as any).createdNow === true) {
+    const convokedIds = (created as any).convokedIds as string[] | undefined;
+    const match = (created as any).match as
+      | { id: string; league_id: string | null; date_time: Date; location_name: string | null }
+      | undefined;
+    if (match && convokedIds && convokedIds.length > 0) {
+      const matchDateStr = match.date_time.toLocaleDateString("es-AR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const title = "Te convocaron";
+      const body = `${match.location_name ?? "Partido"} – ${matchDateStr}. Confirmá tu asistencia.`;
+      const data = { matchId: match.id, leagueId: match.league_id ?? undefined };
+      for (const uid of convokedIds) {
+        sendNotification(uid, "MATCH_SUMMON", title, body, data).catch(() => {});
+      }
+    }
+  }
+}
+
+/**
+ * Catch-up inicial: cuando se crea una regla, asegurar que exista
+ * el próximo partido objetivo (si falta) aunque hoy no sea create_on_weekday.
+ */
+export async function ensureNextScheduledMatchForRule(ruleId: string, now = new Date()): Promise<void> {
+  const rule = await prisma.scheduled_match_rules.findUnique({
+    where: { id: ruleId },
+    select: {
+      id: true,
+      league_id: true,
+      created_by_user_id: true,
+      target_weekday: true,
+      target_time: true,
+      location_name: true,
+      price_per_player: true,
+      is_open_signup: true,
+      max_players: true,
+      match_mode: true,
+      convoked_user_ids: true,
+      is_active: true,
+    },
+  });
+  if (!rule || rule.is_active !== true) return;
+
+  const targetDay = nextOrSameWeekdayDate(now, Number(rule.target_weekday) as Weekday, String(rule.target_time));
+  await ensureOccurrenceForRule(rule as any, targetDay);
+}
+
 export async function runScheduledMatchRulesForToday(now = new Date()): Promise<void> {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const weekday = today.getDay() as Weekday;
@@ -84,110 +261,7 @@ export async function runScheduledMatchRulesForToday(now = new Date()): Promise<
 
   for (const rule of rules as any[]) {
     const targetDay = nextWeekdayDate(today, Number(rule.target_weekday) as Weekday);
-    const matchDateTime = withLocalTime(targetDay, String(rule.target_time));
-    if (!matchDateTime) continue;
-
-    const matchDayKey = toDateKey(targetDay);
-    const occurrenceKey = `rule:${rule.id}:${matchDayKey}`;
-
-    // Upsert ocurrencia para idempotencia, y si falta match, crearlo.
-    const created = await prisma.$transaction(async (tx) => {
-      const occDate = new Date(targetDay.getFullYear(), targetDay.getMonth(), targetDay.getDate());
-
-      const occ = await tx.scheduled_match_rule_occurrences.upsert({
-        where: { rule_id_match_date: { rule_id: rule.id, match_date: occDate } },
-        create: { rule_id: rule.id, match_date: occDate, match_id: null },
-        update: {},
-        select: { id: true, match_id: true },
-      });
-
-      if (occ.match_id) return { matchId: occ.match_id, createdNow: false as const };
-
-      // Si ya existe un match con esta key, linkearlo y salir.
-      const existingMatch = await tx.matches.findUnique({
-        where: { scheduled_occurrence_key: occurrenceKey },
-        select: { id: true },
-      });
-      if (existingMatch?.id) {
-        await tx.scheduled_match_rule_occurrences.update({
-          where: { id: occ.id },
-          data: { match_id: existingMatch.id },
-        });
-        return { matchId: existingMatch.id, createdNow: false as const };
-      }
-
-      const isOpenSignup = rule.is_open_signup === true;
-      const convokedIdsRaw = isOpenSignup ? [] : (Array.isArray(rule.convoked_user_ids) ? rule.convoked_user_ids : []);
-      const convokedIds = isOpenSignup
-        ? []
-        : await getEligibleConvokedUserIds(rule.league_id, convokedIdsRaw as string[]);
-
-      const players = isOpenSignup
-        ? undefined
-        : convokedIds.map((id) => ({
-            id,
-            team: String(rule.match_mode ?? "INTERNAL").toUpperCase() === "EXTERNAL" ? "A" : "UNASSIGNED",
-          }));
-
-      const match = await tx.matches.create({
-        data: {
-          league_id: rule.league_id,
-          admin_id: rule.created_by_user_id,
-          location_name: rule.location_name ?? null,
-          date_time: matchDateTime,
-          price_per_player: rule.price_per_player ?? null,
-          status: "OPEN",
-          is_open_signup: isOpenSignup,
-          max_players: isOpenSignup ? (typeof rule.max_players === "number" ? rule.max_players : null) : null,
-          match_mode: String(rule.match_mode ?? "INTERNAL").toUpperCase() === "EXTERNAL" ? "EXTERNAL" : "INTERNAL",
-          team_a_score: 0,
-          team_b_score: 0,
-          scheduled_rule_id: rule.id,
-          scheduled_occurrence_key: occurrenceKey,
-          match_players: players
-            ? {
-                createMany: {
-                  data: players.map((p) => ({
-                    user_id: p.id,
-                    team: p.team,
-                    has_confirmed: false,
-                    match_rating: 0,
-                  })),
-                },
-              }
-            : undefined,
-        },
-        select: { id: true, league_id: true, date_time: true, location_name: true },
-      });
-
-      await tx.scheduled_match_rule_occurrences.update({
-        where: { id: occ.id },
-        data: { match_id: match.id },
-      });
-
-      return { matchId: match.id, createdNow: true as const, convokedIds, match };
-    });
-
-    // Notificaciones fuera de la tx (fire-and-forget)
-    if ((created as any).createdNow === true) {
-      const convokedIds = (created as any).convokedIds as string[] | undefined;
-      const match = (created as any).match as { id: string; league_id: string | null; date_time: Date; location_name: string | null } | undefined;
-      if (match && convokedIds && convokedIds.length > 0) {
-        const matchDateStr = match.date_time.toLocaleDateString("es-AR", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-        const title = "Te convocaron";
-        const body = `${match.location_name ?? "Partido"} – ${matchDateStr}. Confirmá tu asistencia.`;
-        const data = { matchId: match.id, leagueId: match.league_id ?? undefined };
-        for (const uid of convokedIds) {
-          sendNotification(uid, "MATCH_SUMMON", title, body, data).catch(() => {});
-        }
-      }
-    }
+    await ensureOccurrenceForRule(rule as any, targetDay);
   }
 }
 

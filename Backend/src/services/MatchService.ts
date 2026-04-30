@@ -1,8 +1,10 @@
-import { prisma } from "../server.js";
+import { prisma } from "../db.js";
 import { grantTtpInTx, type TxClient } from "./TtpService.js";
 import { resolveMatchDuel } from "./DuelService.js";
 import { processMatchPredictions } from "./PredictionService.js";
 import { sendNotification } from "./NotificationService.js";
+import { settleMvpMarketForMatch } from "./BetService.js";
+import { settleHouseBetsForMatch } from "./HouseBetService.js";
 import { DomainError } from "../utils/domainError.js";
 import { createLogger } from "../utils/logger.js";
 
@@ -515,6 +517,24 @@ export async function closeMatch(matchId: string): Promise<boolean> {
         .filter((v) => v.weight > 0);
 
       if (allVotes.length === 0) {
+        // Aun sin votos, el partido debe cerrar correctamente:
+        // - resolver duelo (empate estable si no hay stats)
+        // - liquidar apuestas TTP (contra la casa)
+        // - otorgar TTP por partido jugado a confirmados
+        await resolveMatchDuel(matchId, tx);
+        await settleHouseBetsForMatch(matchId, tx as TxClient);
+        await Promise.all(
+          confirmedPlayers.map((p) =>
+            grantTtpInTx(tx as TxClient, {
+              userId: p.user_id,
+              amount: TTP_MATCH_PLAYED,
+              reason: "MATCH_PLAYED",
+              refType: "MATCH",
+              refId: matchId,
+              idempotencyKey: `match:${matchId}:played:${p.user_id}`,
+            }),
+          ),
+        );
         await tx.matches.update({
           where: { id: matchId },
           data: { status: "COMPLETED" },
@@ -526,6 +546,20 @@ export async function closeMatch(matchId: string): Promise<boolean> {
       const processedStats = computeProcessedStats(votesByPlayer);
 
       if (processedStats.length === 0) {
+        await resolveMatchDuel(matchId, tx);
+        await settleHouseBetsForMatch(matchId, tx as TxClient);
+        await Promise.all(
+          confirmedPlayers.map((p) =>
+            grantTtpInTx(tx as TxClient, {
+              userId: p.user_id,
+              amount: TTP_MATCH_PLAYED,
+              reason: "MATCH_PLAYED",
+              refType: "MATCH",
+              refId: matchId,
+              idempotencyKey: `match:${matchId}:played:${p.user_id}`,
+            }),
+          ),
+        );
         await tx.matches.update({
           where: { id: matchId },
           data: { status: "COMPLETED" },
@@ -596,6 +630,46 @@ export async function closeMatch(matchId: string): Promise<boolean> {
             },
           }),
         ),
+      );
+
+      // Cache de métricas derivadas (para Misiones / escala):
+      // - Top por habilidad (con empates)
+      // - Primero en confirmar (por match)
+      const maxDefense = Math.max(...processedStats.map((s) => s.defense ?? -Infinity));
+      const maxPace = Math.max(...processedStats.map((s) => s.pace ?? -Infinity));
+      const maxTechnique = Math.max(...processedStats.map((s) => s.technique ?? -Infinity));
+      const maxPhysical = Math.max(...processedStats.map((s) => s.physical ?? -Infinity));
+      const maxAttack = Math.max(...processedStats.map((s) => s.attack ?? -Infinity));
+
+      const confirms = await tx.match_players.findMany({
+        where: { match_id: matchId, confirmed_at: { not: null } } as any,
+        select: { user_id: true, confirmed_at: true },
+      });
+      const minConfirmAt = confirms.length
+        ? new Date(Math.min(...confirms.map((c) => new Date(c.confirmed_at as any).getTime())))
+        : null;
+
+      await Promise.all(
+        processedStats.map((s) => {
+          const wasFirst =
+            !!minConfirmAt &&
+            confirms.some(
+              (c) =>
+                c.user_id === s.userId &&
+                new Date(c.confirmed_at as any).getTime() === minConfirmAt.getTime(),
+            );
+          return tx.match_players.updateMany({
+            where: { match_id: matchId, user_id: s.userId },
+            data: {
+              was_first_confirm: wasFirst,
+              is_top_defense: s.defense != null && s.defense >= maxDefense,
+              is_top_pace: s.pace != null && s.pace >= maxPace,
+              is_top_technique: s.technique != null && s.technique >= maxTechnique,
+              is_top_physical: s.physical != null && s.physical >= maxPhysical,
+              is_top_attack: s.attack != null && s.attack >= maxAttack,
+            } as any,
+          });
+        }),
       );
 
       const honorsToCreate: {
@@ -684,6 +758,12 @@ export async function closeMatch(matchId: string): Promise<boolean> {
         where: { id: matchId },
         data: { mvp_id: mvpWinnerId },
       });
+
+      // Apuestas TTP (MVP): liquidar jackpot cuando hay MVP.
+      await settleMvpMarketForMatch(matchId, mvpWinnerId, tx as TxClient);
+
+      // Apuestas TTP contra la casa: liquidar mercados/slips.
+      await settleHouseBetsForMatch(matchId, tx as TxClient);
 
       await resolveMatchDuel(matchId, tx);
 

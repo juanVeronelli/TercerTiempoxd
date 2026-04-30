@@ -32,10 +32,6 @@ import { ShareButton } from "../../../../src/components/share/ShareButton";
 import { MedalsInfoButton } from "../../../../src/components/medals/MedalsInfoButton";
 import { getMedalDisplayName } from "../../../../src/constants/MedalsInfo";
 import { useLeagueMedalNames } from "../../../../src/hooks/useLeagueMedalNames";
-import { useCoachmark, useCoachmarkReady } from "../../../../src/hooks/useCoachmark";
-import { CoachmarkKeys } from "../../../../src/constants/CoachmarkKeys";
-import { CoachmarkModal } from "../../../../src/components/coachmark/CoachmarkModal";
-import { CoachmarkHighlight } from "../../../../src/components/coachmark/CoachmarkHighlight";
 
 const { width } = Dimensions.get("window");
 
@@ -58,33 +54,6 @@ const THEME = {
   textSecondary: "#9CA3AF",
   borderColor: "#374151",
 };
-
-const RESULTS_COACHMARK_STEPS = [
-  {
-    title: "Marcador",
-    body: "El resultado del partido: goles por equipo.",
-  },
-  {
-    title: "Tu rendimiento",
-    body: "Tu puntaje, tendencia y posición en este partido.",
-  },
-  {
-    title: "Ranking del partido",
-    body: "El podio y todos los jugadores con sus medallas (MVP, Tronco, etc.). Tocá uno para ver su perfil.",
-  },
-  {
-    title: "Duelo de la fecha",
-    body: "El duelo destacado del partido.",
-  },
-  {
-    title: "Top 3 Prode",
-    body: "Quienes más acertaron en las predicciones.",
-  },
-  {
-    title: "Compartir",
-    body: "Compartí el informe del partido en redes.",
-  },
-];
 
 const SCROLL_OFFSET_PADDING = 100;
 const SCROLL_THEN_STEP_MS = 480;
@@ -127,24 +96,22 @@ export default function MatchResultsScreen() {
   const [showPredictionsModal, setShowPredictionsModal] = useState(false);
   const [claimingTtp, setClaimingTtp] = useState(false);
 
-  const { shouldShow: showResultsCoachmark, markSeen: markResultsCoachmark } =
-    useCoachmark(CoachmarkKeys.RESULTS);
-  const [coachmarkStep, setCoachmarkStep] = useState(-1);
-  const [targetFrame, setTargetFrame] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const sectionYOffsets = useRef<Record<number, number>>({});
-  const scrollThenStepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fetchSeqRef = useRef(0);
-
-  const canShowCoachmark = useCoachmarkReady(
-    !loading && showResultsCoachmark && !dismissedThisSession,
+  // Si el usuario entra al informe, la acción “Resultados disponibles” se considera vista.
+  useFocusEffect(
+    useCallback(() => {
+      if (!matchId) return;
+      (async () => {
+        try {
+          await apiClient.post("/actions/seen", { keys: [`results_ready:${String(matchId)}`] });
+        } catch {
+          // silencioso
+        }
+      })();
+    }, [matchId]),
   );
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const fetchSeqRef = useRef(0);
 
   const handleBackPress = useCallback(() => {
     const rt = String(returnTo ?? "").trim();
@@ -184,46 +151,6 @@ export default function MatchResultsScreen() {
     [],
   );
 
-  useEffect(() => {
-    if (canShowCoachmark && coachmarkStep < 0) setCoachmarkStep(0);
-  }, [canShowCoachmark, coachmarkStep]);
-
-  const handleRequestNextStep = useCallback(
-    (nextStep: number) => {
-      if (scrollThenStepTimerRef.current) {
-        clearTimeout(scrollThenStepTimerRef.current);
-        scrollThenStepTimerRef.current = null;
-      }
-      const y = sectionYOffsets.current[nextStep];
-      if (y !== undefined) {
-        scrollViewRef.current?.scrollTo({
-          y: Math.max(0, y - SCROLL_OFFSET_PADDING),
-          animated: true,
-        });
-      }
-      scrollThenStepTimerRef.current = setTimeout(() => {
-        scrollThenStepTimerRef.current = null;
-        setCoachmarkStep(nextStep);
-        setTargetFrame(null);
-      }, SCROLL_THEN_STEP_MS);
-    },
-    [],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      setDismissedThisSession(false);
-      return () => {
-        setDismissedThisSession(true);
-        setCoachmarkStep(-1);
-        setTargetFrame(null);
-        if (scrollThenStepTimerRef.current) {
-          clearTimeout(scrollThenStepTimerRef.current);
-          scrollThenStepTimerRef.current = null;
-        }
-      };
-    }, []),
-  );
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -455,21 +382,6 @@ export default function MatchResultsScreen() {
 
   const customMedalNames = useLeagueMedalNames(matchData?.league_id ?? null);
 
-  if (loading)
-    return (
-      <SafeAreaView style={styles.container}>
-        <LeagueHomeHeader
-          title="INFORME OFICIAL"
-          addTopSafeArea={false}
-          onBackPress={handleBackPress}
-        />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 20 }} />
-          <Skeleton width="100%" height={320} borderRadius={16} style={{ marginBottom: 20 }} />
-        </ScrollView>
-      </SafeAreaView>
-    );
-
   const myStats = players.find((p) => p.id === userId);
   const myTtpSummary = matchData?.my_ttp_summary;
 
@@ -583,6 +495,13 @@ export default function MatchResultsScreen() {
         onBackPress={handleBackPress}
       />
 
+      {loading ? (
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <Skeleton width="100%" height={100} borderRadius={16} style={{ marginBottom: 20 }} />
+          <Skeleton width="100%" height={320} borderRadius={16} style={{ marginBottom: 20 }} />
+        </ScrollView>
+      ) : (
+        <>
       {/* Hidden shareable card: renderizado fuera de pantalla para ViewShot */}
       {shareCardData && (
         <View
@@ -605,17 +524,7 @@ export default function MatchResultsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* SCOREBOARD CON RESULTADO REAL */}
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[0] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 0}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 0 && setTargetFrame(frame)}
-          >
+        <View style={{ marginBottom: 20 }}>
         {matchData && (
           <View style={styles.scoreboardCard}>
             <View style={styles.scoreRow}>
@@ -640,20 +549,9 @@ export default function MatchResultsScreen() {
             </Text>
           </View>
         )}
-          </CoachmarkHighlight>
         </View>
 
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[1] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 1}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 1 && setTargetFrame(frame)}
-          >
+        <View style={{ marginBottom: 20 }}>
         {myStats && (
           <>
             <View style={styles.statCard}>
@@ -717,8 +615,10 @@ export default function MatchResultsScreen() {
             {myTtpSummary && (
               <View style={styles.ttpCard}>
                 <View style={styles.ttpCardHeader}>
-                  <Ionicons name="wallet" size={15} color={THEME.gold} />
-                  <Text style={styles.ttpCardTitle}>TUS TTP DE ESTE PARTIDO</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Ionicons name="wallet" size={15} color={THEME.gold} />
+                    <Text style={styles.ttpCardTitle}>TUS TTP DE ESTE PARTIDO</Text>
+                  </View>
                 </View>
                 <Text style={styles.ttpTotalValue}>{Number(myTtpSummary.total || 0)} TTP</Text>
                 {Array.isArray(myTtpSummary.breakdown) && myTtpSummary.breakdown.length > 0 && (
@@ -751,20 +651,9 @@ export default function MatchResultsScreen() {
             )}
           </>
         )}
-          </CoachmarkHighlight>
         </View>
 
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[2] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 2}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 2 && setTargetFrame(frame)}
-          >
+        <View style={{ marginBottom: 20 }}>
         <View style={[styles.sectionHeaderBox, { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }]}>
           <Text style={styles.sectionHeader}>RANKING DEL PARTIDO</Text>
           <MedalsInfoButton size={22} />
@@ -848,20 +737,9 @@ export default function MatchResultsScreen() {
         </View>
 
         {/* Votos anónimos: no se expone quién votó a quién */}
-          </CoachmarkHighlight>
         </View>
 
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[3] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 3}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 3 && setTargetFrame(frame)}
-          >
+        <View style={{ marginBottom: 20 }}>
         <View style={styles.sectionHeaderBox}>
           <Text style={styles.sectionHeader}>DUELO DE LA FECHA</Text>
         </View>
@@ -872,21 +750,10 @@ export default function MatchResultsScreen() {
             leagueId={matchData?.league_id ?? undefined}
           />
         </View>
-          </CoachmarkHighlight>
         </View>
 
         {/* TOP 3 PRODE justo debajo del duelo */}
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[4] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 4}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 4 && setTargetFrame(frame)}
-          >
+        <View style={{ marginBottom: 20 }}>
         <View style={styles.sectionHeaderBox}>
           <Text style={styles.sectionHeader}>TOP 3 PRODE</Text>
         </View>
@@ -959,7 +826,6 @@ export default function MatchResultsScreen() {
             );
           })()}
         </View>
-          </CoachmarkHighlight>
         </View>
 
         {predictionsResult != null &&
@@ -1051,23 +917,12 @@ export default function MatchResultsScreen() {
           </>
         )}
 
-        <View
-          onLayout={(e) => {
-            sectionYOffsets.current[5] = e.nativeEvent.layout.y;
-          }}
-          collapsable={false}
-        >
-          <CoachmarkHighlight
-            highlighted={canShowCoachmark && coachmarkStep === 5}
-            style={{ marginBottom: 20 }}
-            onMeasure={(frame) => coachmarkStep === 5 && setTargetFrame(frame)}
-          >
+        <View style={{ marginBottom: 20 }}>
         <ShareButton
           onPress={handleShare}
           variant="filled"
           style={styles.shareButtonWrap}
         />
-          </CoachmarkHighlight>
         </View>
 
         <View style={styles.sectionHeaderBox}>
@@ -1257,25 +1112,7 @@ export default function MatchResultsScreen() {
 
         <View style={{ height: 50 }} />
       </ScrollView>
-
-      {canShowCoachmark && (
-        <CoachmarkModal
-          visible={true}
-          steps={RESULTS_COACHMARK_STEPS}
-          stepIndexProp={coachmarkStep}
-          onRequestNextStep={handleRequestNextStep}
-          onFinish={() => {
-            setDismissedThisSession(true);
-            setCoachmarkStep(-1);
-            setTargetFrame(null);
-            markResultsCoachmark();
-          }}
-          onStepChange={(step) => {
-            setCoachmarkStep(step);
-            if (step === -1) setTargetFrame(null);
-          }}
-          targetFrame={targetFrame}
-        />
+        </>
       )}
 
       <Modal

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -29,10 +30,7 @@ import axios from "axios";
 import apiClient from "../../../src/api/apiClient";
 import { formatUserFacingError } from "../../../src/api/apiErrors";
 import { useTtp } from "../../../src/context/TtpContext";
-import { CoachmarkModal } from "../../../src/components/coachmark/CoachmarkModal";
-import { CoachmarkHighlight } from "../../../src/components/coachmark/CoachmarkHighlight";
-import { useCoachmark, useCoachmarkReady } from "../../../src/hooks/useCoachmark";
-import { CoachmarkKeys } from "../../../src/constants/CoachmarkKeys";
+
 
 // Importamos los componentes
 import { NextMatchCard } from "../../../src/components/NextMatchCard";
@@ -48,6 +46,23 @@ import { NativeAdCardWrapper } from "../../../src/components/ads/NativeAdCardWra
 import { AVATAR_FRAMES } from "../../../src/components/profile/profileConstants";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+// El ScrollView del home tiene paddingHorizontal=20 → el ancho útil real es (screen - 40).
+// Si usamos (screen - 32) la card se corta/traspasa en algunos dispositivos.
+const ACTION_CARD_W = Math.min(Dimensions.get("window").width - 40, 420);
+
+function formatActionMatchDateTime(value: any): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const day = d.toLocaleDateString("es-AR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+  });
+  const time = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  // ej: "vie 02 may · 22:00"
+  return `${day} · ${time}`.replace(/\.$/, "");
+}
 
 // --- COMPONENTE INTERNO: TARJETA DE RENDIMIENTO (STATS) ---
 const StatsSummaryCard = ({
@@ -173,33 +188,6 @@ const SQUAD_FRAME_ALIASES: Record<string, string> = {
   comeback: "comeback_frame",
 };
 
-const HOME_COACHMARK_STEPS = [
-  {
-    title: "Plantel",
-    body: "Acá ves a todos los jugadores de la liga. Tocá a uno para ver su perfil y estadísticas.",
-  },
-  {
-    title: "Mi rendimiento",
-    body: "Tu media de puntaje y la racha de últimos partidos. Entrá para ver el detalle completo.",
-  },
-  {
-    title: "Mini ranking",
-    body: "El podio de la liga y tu posición. Se actualiza después de cada partido con votación.",
-  },
-  {
-    title: "Prode y predicciones",
-    body: "Pronosticá resultados y competí con el resto. Sumá puntos por acertar.",
-  },
-  {
-    title: "Duelos",
-    body: "El partido en curso o el último jugado: resultado, MVP y resumen. Tocá para ver detalle.",
-  },
-  {
-    title: "Próximo partido",
-    body: "Cuando un admin programe un partido de fútbol en cancha, aparecerá acá para confirmar asistencia.",
-  },
-];
-
 const SCROLL_OFFSET_PADDING = 100;
 
 export default function LeagueHomeScreen() {
@@ -236,6 +224,15 @@ export default function LeagueHomeScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState<string>("");
   const [members, setMembers] = useState<any[]>([]);
+  const [actionNowRemote, setActionNowRemote] = useState<
+    Array<{
+      key: string;
+      kind: string;
+      title: string;
+      subtitle: string;
+      primary: { label: string; screen: string; params?: Record<string, string> };
+    }>
+  >([]);
   const [monthlyRewardVisible, setMonthlyRewardVisible] = useState(false);
   const [monthlyRewardAmount, setMonthlyRewardAmount] = useState(0);
   const [monthlyRewardPeriodKey, setMonthlyRewardPeriodKey] = useState<string | null>(null);
@@ -336,33 +333,14 @@ export default function LeagueHomeScreen() {
     [leagueId, resolveSquadFrame, router, userId],
   );
 
-  const { shouldShow: showHomeCoachmark, markSeen: markHomeCoachmark } =
-    useCoachmark(CoachmarkKeys.HOME);
-  const [coachmarkStep, setCoachmarkStep] = useState(-1);
-  const [targetFrame, setTargetFrame] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
   // --- ONBOARDING DE ADMIN ---
   // Todo el home bloqueado para admin hasta que invite al primer amigo (members >= 2).
   // Luego se desbloquea todo (con bloqueos de widgets para todos: rendimiento/miniranking según corresponda).
   const needsPlayers = members.length < 2;
   const showOnboarding = !loading && isAdmin && needsPlayers;
 
-  const canShowCoachmark = useCoachmarkReady(
-    !showOnboarding && showHomeCoachmark && !dismissedThisSession,
-  );
-
   const scrollViewRef = useRef<ScrollView>(null);
-  const sectionYOffsets = useRef<Record<number, number>>({});
-  const scrollThenStepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (canShowCoachmark && coachmarkStep < 0) setCoachmarkStep(0);
-  }, [canShowCoachmark, coachmarkStep]);
 
   const fetchDashboardData = async () => {
     try {
@@ -412,10 +390,11 @@ export default function LeagueHomeScreen() {
 
       // Próximo partido y último partido
       try {
-        const [nextRes, recentRes, voteRes] = await Promise.allSettled([
+        const [nextRes, recentRes, voteRes, actionsRes] = await Promise.allSettled([
           apiClient.get(`/match/${leagueId}/next`, { signal }),
           apiClient.get(`/match/${leagueId}/recent-results`, { signal }),
           apiClient.get(`/match/${leagueId}/voting`, { signal }),
+          apiClient.get(`/actions/now`, { signal, params: { leagueId } }),
         ]);
 
         // Procesar Next Match
@@ -439,6 +418,13 @@ export default function LeagueHomeScreen() {
           setVotingMatches(Array.isArray(voteRes.value.data) ? voteRes.value.data : []);
         } else {
           setVotingMatches([]);
+        }
+
+        if (actionsRes.status === "fulfilled") {
+          const arr = actionsRes.value.data?.actions ?? [];
+          setActionNowRemote(Array.isArray(arr) ? arr : []);
+        } else {
+          setActionNowRemote([]);
         }
       } catch (e) {
         if (axios.isAxiosError(e) && e.code === "ERR_CANCELED") return;
@@ -566,44 +552,7 @@ export default function LeagueHomeScreen() {
     }, [leagueId]),
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      setDismissedThisSession(false);
-      return () => {
-        setDismissedThisSession(true);
-        setCoachmarkStep(-1);
-        setTargetFrame(null);
-        if (scrollThenStepTimerRef.current) {
-          clearTimeout(scrollThenStepTimerRef.current);
-          scrollThenStepTimerRef.current = null;
-        }
-      };
-    }, []),
-  );
 
-  const SCROLL_THEN_STEP_MS = 480;
-
-  const handleRequestNextStep = useCallback(
-    (nextStep: number) => {
-      if (scrollThenStepTimerRef.current) {
-        clearTimeout(scrollThenStepTimerRef.current);
-        scrollThenStepTimerRef.current = null;
-      }
-      const y = sectionYOffsets.current[nextStep];
-      if (y !== undefined) {
-        scrollViewRef.current?.scrollTo({
-          y: Math.max(0, y - SCROLL_OFFSET_PADDING),
-          animated: true,
-        });
-      }
-      scrollThenStepTimerRef.current = setTimeout(() => {
-        scrollThenStepTimerRef.current = null;
-        setCoachmarkStep(nextStep);
-        setTargetFrame(null);
-      }, SCROLL_THEN_STEP_MS);
-    },
-    [],
-  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -692,6 +641,7 @@ export default function LeagueHomeScreen() {
           styles.scrollContent,
           showOnboarding && styles.scrollContentOnboarding,
         ]}
+        scrollEnabled={!loading}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -700,13 +650,14 @@ export default function LeagueHomeScreen() {
           />
         }
       >
-        {showOnboarding ? (
+        {loading ? (
+          // Fondo limpio durante carga (evita flashes de estados vacíos).
+          <View style={{ minHeight: 240 }} />
+        ) : showOnboarding ? (
           /* CASO A: Solo admin con < 2 miembros — solo hero de invitar + hint bloqueado */
           <>
             <View style={styles.onboardingContainer}>
-              <Text style={styles.onboardingTitle}>
-                ¡Todo listo para arrancar!
-              </Text>
+              <Text style={styles.onboardingTitle}>¡Todo listo para arrancar!</Text>
               <View style={styles.onboardingCardSpacer}>
                 <LeagueInviteHero leagueId={leagueId} />
               </View>
@@ -715,9 +666,7 @@ export default function LeagueHomeScreen() {
             {/* Widget Plantel — siempre visible */}
             <View style={styles.squadSection}>
               <View style={styles.squadHeader}>
-                <Text style={styles.squadTitle}>
-                  Plantel ({members.length})
-                </Text>
+                <Text style={styles.squadTitle}>Plantel ({members.length})</Text>
               </View>
               <FlatList
                 data={members}
@@ -771,172 +720,273 @@ export default function LeagueHomeScreen() {
             {/* TU ACCIÓN AHORA (UX): Votar / Anotarte / Confirmar / Espectador */}
             <View style={styles.actionNowWrap}>
               <Text style={styles.sectionTitle}>TU ACCIÓN AHORA</Text>
-              <View style={styles.actionNowCard}>
-                {votingMatches.length > 0 ? (
-                  <>
-                    <View style={styles.actionNowHeader}>
-                      <View style={styles.actionNowIconWrap}>
-                        <Ionicons name="star" size={18} color={Colors.accentGold} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.actionNowTitle}>VOTACIÓN ABIERTA</Text>
-                        <Text style={styles.actionNowSubtitle} numberOfLines={1}>
-                          {votingMatches[0]?.location_name ?? "Partido terminado"}
-                        </Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.actionNowPrimaryBtn, { backgroundColor: Colors.accentGold }]}
-                      onPress={() =>
+              <Text style={styles.actionNowHint}>Deslizá para ver más acciones</Text>
+              {(() => {
+                const localCards: any[] = [];
+                if (votingMatches.length > 0) {
+                  const when = formatActionMatchDateTime(votingMatches[0]?.date_time);
+                  localCards.push({
+                    key: "local:voting",
+                    title: "VOTACIÓN ABIERTA",
+                    subtitle: votingMatches[0]?.location_name ?? "Partido terminado",
+                    detail: "Ya podés votar el informe del partido.",
+                    when,
+                    icon: { name: "star" as const, color: Colors.accentGold },
+                    primary: {
+                      label: "VOTAR AHORA",
+                      onPress: () =>
                         router.push({
                           pathname: "/(main)/league/match/vote",
                           params: { matchId: votingMatches[0].id },
-                        })
-                      }
-                      activeOpacity={0.9}
-                    >
-                      <Text style={[styles.actionNowPrimaryText, { color: "#111827" }]}>
-                        VOTAR AHORA
-                      </Text>
-                      <Ionicons name="chevron-forward" size={18} color="#111827" />
-                    </TouchableOpacity>
-                  </>
-                ) : nextMatch ? (
-                  (() => {
-                    const isOpenSignup = nextMatch?.is_open_signup === true;
-                    const userSignedUp = nextMatch?.user_signed_up === true;
-                    const maxPlayers =
-                      typeof nextMatch?.max_players === "number" ? nextMatch.max_players : null;
-                    const signedUpCount =
-                      typeof nextMatch?.signed_up_count === "number" ? nextMatch.signed_up_count : null;
-                    const isFull =
-                      typeof maxPlayers === "number" &&
-                      typeof signedUpCount === "number" &&
-                      signedUpCount >= maxPlayers;
-                    const status = String(nextMatch?.user_status ?? "").toUpperCase();
-                    const isSummoned = status === "PENDING" || status === "CONFIRMED";
-                    const spectatorAttending = nextMatch?.spectator_attending === true;
+                        }),
+                      variant: "gold" as const,
+                    },
+                  });
+                } else if (nextMatch) {
+                  const isOpenSignup = nextMatch?.is_open_signup === true;
+                  const userSignedUp = nextMatch?.user_signed_up === true;
+                  const maxPlayers = typeof nextMatch?.max_players === "number" ? nextMatch.max_players : null;
+                  const signedUpCount = typeof nextMatch?.signed_up_count === "number" ? nextMatch.signed_up_count : null;
+                  const isFull =
+                    typeof maxPlayers === "number" &&
+                    typeof signedUpCount === "number" &&
+                    signedUpCount >= maxPlayers;
+                  const status = String(nextMatch?.user_status ?? "").toUpperCase();
+                  const isSummoned = status === "PENDING" || status === "CONFIRMED";
+                  const spectatorAttending = nextMatch?.spectator_attending === true;
 
-                    const subtitle = nextMatch?.location_name ?? "Próximo partido";
-                    const actionLabel = isOpenSignup
-                      ? userSignedUp
-                        ? "DESANOTARME"
-                        : isFull
-                          ? "CUPO COMPLETO"
-                          : "ANOTARME"
+                  const subtitle = nextMatch?.location_name ?? "Próximo partido";
+                  const when = formatActionMatchDateTime(nextMatch?.date_time);
+                  const actionLabel = isOpenSignup
+                    ? userSignedUp
+                      ? "DESANOTARME"
+                      : isFull
+                        ? "CUPO COMPLETO"
+                        : "ANOTARME"
+                    : isSummoned
+                      ? status === "CONFIRMED"
+                        ? "CANCELAR ASISTENCIA"
+                        : "CONFIRMAR ASISTENCIA"
+                      : spectatorAttending
+                        ? "CANCELAR ESPECTADOR"
+                        : "VOY COMO ESPECTADOR";
+
+                  const onPress = () => {
+                    if (isOpenSignup) {
+                      if (userSignedUp) return handleUnsignup(nextMatch.id);
+                      if (isFull) return;
+                      return handleSignup(nextMatch.id);
+                    }
+                    if (isSummoned) {
+                      if (status === "CONFIRMED") return handleLeaveMatch(nextMatch.id);
+                      return handleJoinMatch(nextMatch.id);
+                    }
+                    if (spectatorAttending) return handleUnspectate(nextMatch.id);
+                    return handleSpectate(nextMatch.id);
+                  };
+
+                  localCards.push({
+                    key: "local:nextmatch",
+                    title: "PRÓXIMO PARTIDO",
+                    subtitle,
+                    detail: isOpenSignup
+                      ? "Anotate para jugar."
                       : isSummoned
-                        ? status === "CONFIRMED"
-                          ? "CANCELAR ASISTENCIA"
-                          : "CONFIRMAR ASISTENCIA"
-                        : spectatorAttending
-                          ? "CANCELAR ESPECTADOR"
-                          : "VOY COMO ESPECTADOR";
+                        ? "Confirmá tu asistencia."
+                        : "Marcá si vas como espectador.",
+                    when,
+                    icon: { name: "flash" as const, color: Colors.primary },
+                    meta: isOpenSignup
+                      ? `${typeof signedUpCount === "number" ? signedUpCount : "-"}${typeof maxPlayers === "number" ? ` / ${maxPlayers}` : ""} anotados`
+                      : null,
+                    primary: {
+                      label: actionLabel,
+                      onPress,
+                      disabled: isOpenSignup && !userSignedUp && isFull,
+                      variant: "primary" as const,
+                    },
+                  });
+                } else {
+                  localCards.push({
+                    key: "local:none",
+                    title: "SIN ACCIONES PENDIENTES",
+                    subtitle: "Cuando haya un partido o votación, aparecerá aquí.",
+                    detail: null,
+                    icon: { name: "information-circle-outline" as const, color: Colors.textMuted },
+                    primary: null,
+                  });
+                }
 
-                    const onPress = () => {
-                      if (isOpenSignup) {
-                        if (userSignedUp) return handleUnsignup(nextMatch.id);
-                        if (isFull) return;
-                        return handleSignup(nextMatch.id);
-                      }
-                      if (isSummoned) {
-                        if (status === "CONFIRMED") return handleLeaveMatch(nextMatch.id);
-                        return handleJoinMatch(nextMatch.id);
-                      }
-                      if (spectatorAttending) return handleUnspectate(nextMatch.id);
-                      return handleSpectate(nextMatch.id);
-                    };
+                const remote = (actionNowRemote ?? []).map((a) => ({
+                  ...a,
+                  icon:
+                    a.kind === "MISSION_CLAIM"
+                      ? { name: "trophy-outline" as const, color: Colors.accentGold }
+                      : a.kind === "HOUSE_BET_SETTLED"
+                        ? { name: "poker-chip" as const, color: Colors.accentGold }
+                        : a.kind === "PRODE_OPEN"
+                          ? { name: "list" as const, color: Colors.primary }
+                          : { name: "stats-chart-outline" as const, color: Colors.status.success },
+                }));
 
-                    return (
-                      <>
-                        <View style={styles.actionNowHeader}>
-                          <View style={styles.actionNowIconWrap}>
-                            <Ionicons name="flash" size={18} color={Colors.primary} />
+                const combined = [...localCards, ...remote];
+
+                const handleSeen = async (key: string) => {
+                  try {
+                    await apiClient.post("/actions/seen", { keys: [key] });
+                  } catch {}
+                  setActionNowRemote((prev) => prev.filter((x) => x.key !== key));
+                };
+
+                return (
+                  <FlatList
+                    data={combined}
+                    keyExtractor={(it) => it.key}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    snapToInterval={ACTION_CARD_W + 12}
+                    decelerationRate="fast"
+                    contentContainerStyle={{ paddingRight: 4 }}
+                    renderItem={({ item }) => {
+                      const isRemote = item.kind != null;
+                      const isEmpty = item.key === "local:none";
+                      const onPrimaryPress = () => {
+                        if (isRemote) {
+                          handleSeen(item.key);
+                          router.push({ pathname: item.primary.screen, params: item.primary.params ?? {} } as any);
+                          return;
+                        }
+                        item.primary?.onPress?.();
+                      };
+                      const primaryLabel = isRemote ? item.primary?.label : item.primary?.label;
+                      const primaryDisabled = isRemote ? false : Boolean(item.primary?.disabled);
+                      const primaryVariant = isRemote
+                        ? "primary"
+                        : item.primary?.variant === "gold"
+                          ? "gold"
+                          : "primary";
+
+                      if (isEmpty) {
+                        return (
+                          <View style={[styles.actionNowCard, { width: ACTION_CARD_W, marginRight: 12 }]}>
+                            <View style={[styles.actionNowBody, styles.actionNowEmptyBody]}>
+                              <View style={styles.actionNowEmptyTop}>
+                                <View style={styles.actionNowEmptyIconWrap}>
+                                  <Ionicons
+                                    name={item.icon.name}
+                                    size={28}
+                                    color={Colors.textMuted}
+                                  />
+                                </View>
+                                <Text style={styles.actionNowEmptyTitle}>{item.title}</Text>
+                                <Text style={styles.actionNowEmptySubtitle} numberOfLines={2}>
+                                  {item.subtitle}
+                                </Text>
+                              </View>
+                            </View>
                           </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.actionNowTitle}>PRÓXIMO PARTIDO</Text>
-                            <Text style={styles.actionNowSubtitle} numberOfLines={1}>
-                              {subtitle}
-                            </Text>
+                        );
+                      }
+
+                      return (
+                        <View style={[styles.actionNowCard, { width: ACTION_CARD_W, marginRight: 12 }]}>
+                          <View style={styles.actionNowBody}>
+                            <View style={styles.actionNowTopRow}>
+                              <View style={styles.actionNowIconWrap}>
+                                <Ionicons name={item.icon.name} size={18} color={item.icon.color} />
+                              </View>
+
+                              <View style={{ flex: 1 }}>
+                                <Text style={styles.actionNowTitle} numberOfLines={1}>
+                                  {item.title}
+                                </Text>
+                                <Text style={styles.actionNowSubtitle} numberOfLines={1}>
+                                  {item.subtitle}
+                                </Text>
+                                {!!item.detail && (
+                                  <Text style={styles.actionNowDetail} numberOfLines={1}>
+                                    {item.detail}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+
+                            {(!!item.when || !!item.meta) && (
+                              <View style={styles.actionNowPillsRow}>
+                                {!!item.when && (
+                                  <View style={styles.actionNowPill}>
+                                    <Ionicons
+                                      name="calendar-outline"
+                                      size={14}
+                                      color={Colors.textMuted}
+                                    />
+                                    <Text style={styles.actionNowPillText} numberOfLines={1}>
+                                      {item.when}
+                                    </Text>
+                                  </View>
+                                )}
+                                {!!item.meta && (
+                                  <View style={styles.actionNowPill}>
+                                    <Ionicons
+                                      name="people-outline"
+                                      size={14}
+                                      color={Colors.textMuted}
+                                    />
+                                    <Text style={styles.actionNowPillText} numberOfLines={1}>
+                                      {item.meta}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            )}
+
+                            {(!!item.detail || !!item.when || !!item.meta) && (
+                              <View style={styles.actionNowDivider} />
+                            )}
+
+                            {!!primaryLabel && (
+                              <TouchableOpacity
+                                style={[
+                                  styles.actionNowPrimaryBtn,
+                                  primaryVariant === "gold" && { backgroundColor: Colors.accentGold },
+                                  primaryDisabled && { opacity: 0.55 },
+                                ]}
+                                onPress={onPrimaryPress}
+                                activeOpacity={0.9}
+                                disabled={primaryDisabled}
+                              >
+                                <Text
+                                  style={[
+                                    styles.actionNowPrimaryText,
+                                    primaryVariant === "gold" && { color: "#111827" },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {primaryLabel}
+                                </Text>
+                                <Ionicons
+                                  name="chevron-forward"
+                                  size={18}
+                                  color={primaryVariant === "gold" ? "#111827" : "white"}
+                                />
+                              </TouchableOpacity>
+                            )}
                           </View>
                         </View>
-
-                        {isOpenSignup && (
-                          <View style={styles.actionNowMetaRow}>
-                            <Ionicons name="people-outline" size={14} color={Colors.textMuted} />
-                            <Text style={styles.actionNowMetaText}>
-                              {typeof signedUpCount === "number" ? signedUpCount : "-"}
-                              {typeof maxPlayers === "number" ? ` / ${maxPlayers}` : ""} anotados
-                            </Text>
-                          </View>
-                        )}
-
-                        <TouchableOpacity
-                          style={[
-                            styles.actionNowPrimaryBtn,
-                            (isOpenSignup && !userSignedUp && isFull) && { opacity: 0.5 },
-                          ]}
-                          onPress={onPress}
-                          activeOpacity={0.9}
-                        >
-                          <Text style={styles.actionNowPrimaryText}>{actionLabel}</Text>
-                          <Ionicons name="chevron-forward" size={18} color="white" />
-                        </TouchableOpacity>
-                      </>
-                    );
-                  })()
-                ) : (
-                  <>
-                    <View style={styles.actionNowHeader}>
-                      <View style={styles.actionNowIconWrap}>
-                        <Ionicons name="information-circle-outline" size={18} color={Colors.textMuted} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.actionNowTitle}>SIN ACCIONES PENDIENTES</Text>
-                        <Text style={styles.actionNowSubtitle} numberOfLines={2}>
-                          Cuando haya un partido o votación, aparecerá aquí.
-                        </Text>
-                      </View>
-                    </View>
-                  </>
-                )}
-
-                {!!lastMatch && (
-                  <TouchableOpacity
-                    style={styles.actionNowSecondaryBtn}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(main)/league/match/results",
-                        params: { matchId: lastMatch.id, returnTo: "/(main)/league/home" },
-                      })
-                    }
-                    activeOpacity={0.9}
-                  >
-                    <Ionicons name="stats-chart-outline" size={16} color={Colors.status.success} />
-                    <Text style={styles.actionNowSecondaryText}>Ver últimos resultados</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+                      );
+                    }}
+                  />
+                );
+              })()}
             </View>
 
-            <View
-              onLayout={(e) => {
-                sectionYOffsets.current[0] = e.nativeEvent.layout.y;
-              }}
-              collapsable={false}
-            >
-              <CoachmarkHighlight
-                highlighted={canShowCoachmark && coachmarkStep === 0}
-                style={styles.squadSection}
-                onMeasure={(frame) =>
-                  coachmarkStep === 0 && setTargetFrame(frame)
-                }
-              >
-                <View style={styles.squadHeader}>
-                  <Text style={styles.squadTitle}>
-                    Plantel ({members.length})
-                  </Text>
-                </View>
-                <FlatList
+            <View style={styles.squadSection}>
+              <View style={styles.squadHeader}>
+                <Text style={styles.squadTitle}>
+                  Plantel ({members.length})
+                </Text>
+              </View>
+              <FlatList
                 data={members}
                 keyExtractor={(m) => m.user_id}
                 horizontal
@@ -944,28 +994,16 @@ export default function LeagueHomeScreen() {
                 contentContainerStyle={styles.squadListContent}
                 renderItem={renderSquadMember}
               />
-              </CoachmarkHighlight>
             </View>
 
-            <View
-              onLayout={(e) => {
-                sectionYOffsets.current[1] = e.nativeEvent.layout.y;
-              }}
-              collapsable={false}
-            >
-              <CoachmarkHighlight
-                highlighted={canShowCoachmark && coachmarkStep === 1}
-                style={{ marginBottom: 20 }}
-                onMeasure={(frame) =>
-                  coachmarkStep === 1 && setTargetFrame(frame)
-                }
-              >
             {(stats?.recentMatches?.length ?? 0) > 0 ? (
-              <StatsSummaryCard
-                stats={stats}
-                loading={loading}
-                leagueId={leagueId}
-              />
+              <View>
+                <StatsSummaryCard
+                  stats={stats}
+                  loading={loading}
+                  leagueId={leagueId}
+                />
+              </View>
             ) : (
               <View style={styles.miniRendimientoLocked}>
                 <Ionicons
@@ -980,24 +1018,10 @@ export default function LeagueHomeScreen() {
                 </Text>
               </View>
             )}
-              </CoachmarkHighlight>
-            </View>
+
 
             <AINewsTeaser />
 
-            <View
-              onLayout={(e) => {
-                sectionYOffsets.current[2] = e.nativeEvent.layout.y;
-              }}
-              collapsable={false}
-            >
-              <CoachmarkHighlight
-                highlighted={canShowCoachmark && coachmarkStep === 2}
-                style={{ marginBottom: 20 }}
-                onMeasure={(frame) =>
-                  coachmarkStep === 2 && setTargetFrame(frame)
-                }
-              >
             {lastMatch ? (
               <MiniLeaderboard leagueId={leagueId} />
             ) : (
@@ -1014,30 +1038,15 @@ export default function LeagueHomeScreen() {
                 </Text>
               </View>
             )}
-              </CoachmarkHighlight>
-            </View>
+
 
             <NativeAdCardWrapper
               style={{ marginTop: 16, marginBottom: 16 }}
               isPro={planType === "PRO"}
             />
 
-            <View
-              onLayout={(e) => {
-                sectionYOffsets.current[3] = e.nativeEvent.layout.y;
-              }}
-              collapsable={false}
-            >
-              <CoachmarkHighlight
-                highlighted={canShowCoachmark && coachmarkStep === 3}
-                style={{ marginBottom: 20 }}
-                onMeasure={(frame) =>
-                  coachmarkStep === 3 && setTargetFrame(frame)
-                }
-              >
                 <PredictionsBanner leagueId={leagueId} />
-              </CoachmarkHighlight>
-            </View>
+
 
             {loading ? (
               <View style={{ marginTop: 10 }}>
@@ -1045,19 +1054,6 @@ export default function LeagueHomeScreen() {
               </View>
             ) : (
               <>
-                <View
-                  onLayout={(e) => {
-                    sectionYOffsets.current[4] = e.nativeEvent.layout.y;
-                  }}
-                  collapsable={false}
-                >
-                  <CoachmarkHighlight
-                    highlighted={canShowCoachmark && coachmarkStep === 4}
-                    style={{ marginBottom: 8 }}
-                    onMeasure={(frame) =>
-                      coachmarkStep === 4 && setTargetFrame(frame)
-                    }
-                  >
                     {duelMatchId ? (
                       <View style={{ marginTop: 10, marginBottom: 5 }}>
                         {!nextMatch && lastMatch && (
@@ -1075,22 +1071,8 @@ export default function LeagueHomeScreen() {
                     ) : (
                       <View style={{ minHeight: 60 }} />
                     )}
-                  </CoachmarkHighlight>
-                </View>
 
-                <View
-                  onLayout={(e) => {
-                    sectionYOffsets.current[5] = e.nativeEvent.layout.y;
-                  }}
-                  collapsable={false}
-                >
-                  <CoachmarkHighlight
-                    highlighted={canShowCoachmark && coachmarkStep === 5}
-                    style={{ marginBottom: 24 }}
-                    onMeasure={(frame) =>
-                      coachmarkStep === 5 && setTargetFrame(frame)
-                    }
-                  >
+
                     {nextMatch ? (
                       <View>
                         <Text style={styles.sectionTitle}>
@@ -1122,33 +1104,24 @@ export default function LeagueHomeScreen() {
                         iconName="calendar"
                       />
                     )}
-                  </CoachmarkHighlight>
-                </View>
+
               </>
             )}
           </>
         )}
       </ScrollView>
 
-      {canShowCoachmark && (
-          <CoachmarkModal
-            visible={true}
-            steps={HOME_COACHMARK_STEPS}
-            stepIndexProp={coachmarkStep}
-            onRequestNextStep={handleRequestNextStep}
-            onFinish={() => {
-              setDismissedThisSession(true);
-              setCoachmarkStep(-1);
-              setTargetFrame(null);
-              markHomeCoachmark();
-            }}
-            onStepChange={(step) => {
-              setCoachmarkStep(step);
-              if (step === -1) setTargetFrame(null);
-            }}
-            targetFrame={targetFrame}
-          />
-        )}
+      {loading ? (
+        <View pointerEvents="auto" style={styles.loadingOverlay}>
+          <View style={styles.loadingCard}>
+            <ActivityIndicator color={Colors.accentGold} />
+            <Text style={styles.loadingTitle}>Cargando liga…</Text>
+            <Text style={styles.loadingSub} numberOfLines={2}>
+              Preparando tu inicio
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       {/* MODAL SELECTOR */}
       <Modal
@@ -1322,18 +1295,66 @@ const styles = StyleSheet.create({
     minHeight: 152,
   },
   actionNowWrap: { marginBottom: 18 },
+  actionNowHint: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: -4,
+    marginBottom: 12,
+    marginLeft: 5,
+  },
   actionNowCard: {
     backgroundColor: Colors.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.borderLight,
-    padding: 16,
+    overflow: "hidden",
   },
-  actionNowHeader: {
+  actionNowBody: {
+    padding: 16,
+    minHeight: 150,
+    justifyContent: "space-between",
+  },
+  actionNowEmptyBody: {
+    justifyContent: "space-between",
+  },
+  actionNowEmptyTop: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 8,
+    paddingHorizontal: 10,
+  },
+  actionNowEmptyIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: Colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    marginBottom: 10,
+  },
+  actionNowEmptyTitle: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  actionNowEmptySubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  actionNowTopRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   actionNowIconWrap: {
     width: 36,
@@ -1346,32 +1367,58 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderLight,
   },
   actionNowTitle: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 0.8,
+    color: Colors.textMuted,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1,
   },
   actionNowSubtitle: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: "900",
+    marginTop: 4,
+    lineHeight: 19,
+  },
+  actionNowDetail: {
     color: Colors.textSecondary,
     fontSize: 12,
-    fontWeight: "600",
-    marginTop: 2,
+    fontWeight: "700",
+    marginTop: 4,
   },
-  actionNowMetaRow: {
+  actionNowPillsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  actionNowDivider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    opacity: 0.7,
+    marginBottom: 12,
+  },
+  actionNowPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    backgroundColor: Colors.surfaceElevated,
+    maxWidth: "100%",
   },
-  actionNowMetaText: {
+  actionNowPillText: {
     color: Colors.textMuted,
     fontSize: 12,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   actionNowPrimaryBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 12,
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
@@ -1379,7 +1426,7 @@ const styles = StyleSheet.create({
   },
   actionNowPrimaryText: {
     color: "white",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "900",
     letterSpacing: 0.6,
   },
@@ -1797,5 +1844,37 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accentGold,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.40)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  loadingCard: {
+    width: "100%",
+    maxWidth: 320,
+    backgroundColor: "#0B1220",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    gap: 10,
+  },
+  loadingTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+  loadingSub: {
+    color: "rgba(255,255,255,0.70)",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 16,
   },
 });

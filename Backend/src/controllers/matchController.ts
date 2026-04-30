@@ -464,7 +464,7 @@ export const confirmMatch = async (req: Request, res: Response) => {
         match_id: matchId,
         user_id: userId,
       },
-      data: { has_confirmed: true },
+      data: { has_confirmed: true, confirmed_at: new Date() },
     });
 
     if (result.count === 0) {
@@ -528,7 +528,7 @@ export const unconfirmMatch = async (req: Request, res: Response) => {
         match_id: matchId,
         user_id: userId,
       },
-      data: { has_confirmed: false },
+      data: { has_confirmed: false, confirmed_at: null },
     });
 
     if (result.count === 0)
@@ -1059,7 +1059,7 @@ export const adminConfirmPlayer = async (req: Request, res: Response) => {
 
     const result = await prisma.match_players.updateMany({
       where: { match_id: matchId, user_id: targetUserId, has_confirmed: false },
-      data: { has_confirmed: true },
+      data: { has_confirmed: true, confirmed_at: new Date() },
     });
     if (result.count === 0) {
       return sendError(res, 404, {
@@ -1091,7 +1091,7 @@ export const adminConfirmAllPending = async (req: Request, res: Response) => {
 
     const result = await prisma.match_players.updateMany({
       where: { match_id: matchId, has_confirmed: false },
-      data: { has_confirmed: true },
+      data: { has_confirmed: true, confirmed_at: new Date() },
     });
     return res.json({
       message: "Asistencias confirmadas por admin",
@@ -1100,6 +1100,47 @@ export const adminConfirmAllPending = async (req: Request, res: Response) => {
   } catch (error) {
     log.errorWithErr("adminConfirmAllPending failed", error, { matchId: req.params.matchId, adminId: req.user?.userId });
     return sendError(res, 500, { error: "Error confirmando pendientes" });
+  }
+};
+
+export const adminSetPlayerFlags = async (req: Request, res: Response) => {
+  try {
+    const matchId = req.params.matchId as string;
+    const adminId = req.user?.userId;
+    const targetUserId = String(req.body?.userId ?? "");
+    const injured = req.body?.injured;
+    const leftEarly = req.body?.leftEarly;
+
+    if (!adminId) return sendError(res, 401, { error: "Usuario no autenticado" });
+    if (!matchId) return sendError(res, 400, { error: "Falta matchId" });
+    if (!targetUserId) return sendError(res, 400, { error: "Falta userId" });
+    if (injured === undefined && leftEarly === undefined) {
+      return sendError(res, 400, { error: "Faltan flags (injured / leftEarly)" });
+    }
+
+    const canManage = await isLeagueStaffForMatch(adminId, matchId);
+    if (!canManage) {
+      return sendError(res, 403, {
+        error: "FORBIDDEN",
+        message: "No tienes permisos para marcar flags de jugadores.",
+      });
+    }
+
+    const result = await prisma.match_players.updateMany({
+      where: { match_id: matchId, user_id: targetUserId },
+      data: {
+        ...(injured !== undefined ? { injured: Boolean(injured) } : {}),
+        ...(leftEarly !== undefined ? { left_early: Boolean(leftEarly) } : {}),
+      },
+    });
+    if (result.count === 0) {
+      return sendError(res, 404, { error: "NOT_FOUND", message: "Jugador no encontrado en este partido." });
+    }
+
+    return res.json({ ok: true });
+  } catch (error) {
+    log.errorWithErr("adminSetPlayerFlags failed", error, { matchId: req.params.matchId, adminId: req.user?.userId });
+    return sendError(res, 500, { error: "Error marcando flags" });
   }
 };
 

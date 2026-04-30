@@ -12,6 +12,7 @@ import {
   getPublicUserProfile,
   getGlobalProfile,
   updateProfileData,
+  registerExpoPushToken,
   uploadProfilePicture,
 } from "../controllers/userProfileController.js";
 import { iapUpgradeToPro } from "../controllers/iapController.js";
@@ -64,6 +65,7 @@ router.post(
   uploadProfilePicture
 );
 router.put("/update-profile", authenticateToken, updateProfileData);
+router.put("/push-token", authenticateToken, registerExpoPushToken);
 
 // --- Perfil global ---
 router.get("/profile/global", authenticateToken, getGlobalProfile);
