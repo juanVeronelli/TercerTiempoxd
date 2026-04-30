@@ -28,13 +28,16 @@ const rawBaseUrl =
 
 const env = getAppEnv();
 if (!rawBaseUrl) {
-  // En beta/prod, no aceptamos fallbacks hardcodeados.
+  // Importante: NO tirar error en tiempo de import del módulo.
+  // Si falta la URL en beta/prod, la app igual debe abrir (para no “crash on launch”);
+  // las llamadas fallarán hasta que el build tenga EXPO_PUBLIC_API_URL en extra/env.
   if (env === "beta" || env === "prod" || env === "production") {
-    throw new Error("Missing EXPO_PUBLIC_API_URL (required for beta/prod).");
+    console.error(
+      "[apiClient] Missing EXPO_PUBLIC_API_URL in this build. Set it in EAS Secrets / eas.json env so it reaches Constants.expoConfig.extra.",
+    );
+  } else {
+    console.warn("[apiClient] EXPO_PUBLIC_API_URL missing; API calls will fail until configured.");
   }
-  // Dev: mantenerlo explícito para que el dev lo configure.
-  // (No seteamos fallback IP para evitar builds públicas apuntando a una IP privada.)
-  console.warn("[apiClient] EXPO_PUBLIC_API_URL missing; API calls will fail until configured.");
 }
 
 const apiBaseUrl = normalizeApiBaseUrl(rawBaseUrl);
