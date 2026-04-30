@@ -19,6 +19,7 @@ import { EmptyState } from "../../../src/components/ui/EmptyState";
 import { Skeleton } from "../../../src/components/ui/Skeleton";
 import { IconButton } from "../../../src/components/ui/IconButton";
 import { NotificationItem } from "../../../src/components/NotificationItem";
+import Constants from "expo-constants";
 import {
   getNotifications,
   markAsRead,
@@ -36,11 +37,21 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const TEST_IDS = new Set([
-  "00000000-0000-0000-0000-000000000001",
-  "00000000-0000-0000-0000-000000000002",
-  "00000000-0000-0000-0000-000000000003",
-]);
+const IS_DEV_ENV =
+  __DEV__ ||
+  String((Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_ENV ?? "dev")
+    .trim()
+    .toLowerCase() === "dev";
+
+const TEST_IDS = new Set(
+  IS_DEV_ENV
+    ? [
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-000000000002",
+        "00000000-0000-0000-0000-000000000003",
+      ]
+    : [],
+);
 
 function isTestId(id: string | undefined): boolean {
   return !!id && TEST_IDS.has(id);

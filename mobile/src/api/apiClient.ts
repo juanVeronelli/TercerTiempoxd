@@ -11,11 +11,31 @@ function normalizeApiBaseUrl(raw: string): string {
   return trimmed.endsWith("/api") ? trimmed : `${trimmed}/api`;
 }
 
+function getAppEnv(): string {
+  const e =
+    (typeof Constants.expoConfig?.extra?.EXPO_PUBLIC_ENV === "string" &&
+      Constants.expoConfig.extra.EXPO_PUBLIC_ENV) ||
+    process.env.EXPO_PUBLIC_ENV ||
+    "dev";
+  return String(e).trim().toLowerCase();
+}
+
 const rawBaseUrl =
   (typeof Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL === "string" &&
     Constants.expoConfig.extra.EXPO_PUBLIC_API_URL) ||
   process.env.EXPO_PUBLIC_API_URL ||
-  "http://192.168.0.25:3000";
+  "";
+
+const env = getAppEnv();
+if (!rawBaseUrl) {
+  // En beta/prod, no aceptamos fallbacks hardcodeados.
+  if (env === "beta" || env === "prod" || env === "production") {
+    throw new Error("Missing EXPO_PUBLIC_API_URL (required for beta/prod).");
+  }
+  // Dev: mantenerlo explícito para que el dev lo configure.
+  // (No seteamos fallback IP para evitar builds públicas apuntando a una IP privada.)
+  console.warn("[apiClient] EXPO_PUBLIC_API_URL missing; API calls will fail until configured.");
+}
 
 const apiBaseUrl = normalizeApiBaseUrl(rawBaseUrl);
 

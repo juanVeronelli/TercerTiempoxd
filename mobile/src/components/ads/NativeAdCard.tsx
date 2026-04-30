@@ -1,11 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-} from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import { Platform } from "react-native";
+import Constants from "expo-constants";
 import {
   NativeAd,
   NativeAdView,
@@ -18,7 +14,23 @@ import {
 import { Colors } from "../../constants/Colors";
 
 // Unit ID de Prueba para Native Advanced (Android: 2247696110, iOS: 3986624511)
-const NATIVE_AD_UNIT_ID = TestIds.NATIVE;
+const ENV = String((Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_ENV ?? "dev")
+  .trim()
+  .toLowerCase();
+const IS_PROD_LIKE = ENV === "beta" || ENV === "prod" || ENV === "production";
+
+const NATIVE_UNIT_ANDROID = String(
+  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_ANDROID ?? "",
+).trim();
+const NATIVE_UNIT_IOS = String(
+  (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_IOS ?? "",
+).trim();
+
+const NATIVE_AD_UNIT_ID = IS_PROD_LIKE
+  ? Platform.OS === "ios"
+    ? NATIVE_UNIT_IOS || TestIds.NATIVE
+    : NATIVE_UNIT_ANDROID || TestIds.NATIVE
+  : TestIds.NATIVE;
 
 export type NativeAdCardProps = {
   /** Opciones de request (aspect ratio, ad choices placement, etc.) */
@@ -32,10 +44,7 @@ export type NativeAdCardProps = {
  * Muestra icono, título, body, star rating, MediaView (video/imagen) y CTA.
  * Usa TestIds.NATIVE en desarrollo; cambiar a tu Unit ID en producción.
  */
-export function NativeAdCard({
-  requestOptions,
-  style,
-}: NativeAdCardProps) {
+export function NativeAdCard({ requestOptions, style }: NativeAdCardProps) {
   const [nativeAd, setNativeAd] = useState<NativeAd | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,10 +154,7 @@ export function NativeAdCard({
             </NativeAsset>
           )}
           <NativeAsset assetType={NativeAssetType.CALL_TO_ACTION}>
-            <TouchableOpacity
-              style={styles.ctaButton}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.ctaButton} activeOpacity={0.8}>
               <Text style={styles.ctaText}>{nativeAd.callToAction}</Text>
             </TouchableOpacity>
           </NativeAsset>

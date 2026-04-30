@@ -14,6 +14,23 @@ const apiUrl =
     ? process.env.EXPO_PUBLIC_API_URL.trim()
     : "";
 
+const APP_ENV =
+  typeof process.env.EXPO_PUBLIC_ENV === "string"
+    ? process.env.EXPO_PUBLIC_ENV.trim().toLowerCase()
+    : "dev";
+
+// Soportar ambos nombres (por si ya creaste la variable sin "UNIT")
+const NATIVE_AD_UNIT_IDS = {
+  android:
+    process.env.EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_ANDROID?.trim() ||
+    process.env.EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_ANDROID?.trim() ||
+    "",
+  ios:
+    process.env.EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_IOS?.trim() ||
+    process.env.EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_IOS?.trim() ||
+    "",
+};
+
 // AdMob: desde env (EXPO_PUBLIC_ADMOB_ANDROID_APP_ID, EXPO_PUBLIC_ADMOB_IOS_APP_ID) o IDs de prueba
 const ADMOB_APP_IDS = {
   android:
@@ -23,6 +40,25 @@ const ADMOB_APP_IDS = {
     process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID?.trim() ||
     "ca-app-pub-3940256099942544~1458002511",
 };
+
+const IS_PROD_LIKE = APP_ENV === "beta" || APP_ENV === "prod" || APP_ENV === "production";
+if (IS_PROD_LIKE) {
+  const isTestAndroid = ADMOB_APP_IDS.android === "ca-app-pub-3940256099942544~3347511713";
+  // Android-first: iOS IDs pueden faltar por ahora. Solo exigimos Android en beta/prod.
+  if (isTestAndroid) {
+    throw new Error(
+      "[app.config] Missing real AdMob Android app id. Set EXPO_PUBLIC_ADMOB_ANDROID_APP_ID for beta/prod.",
+    );
+  }
+  if (!apiUrl) {
+    throw new Error("[app.config] Missing EXPO_PUBLIC_API_URL for beta/prod.");
+  }
+  if (!NATIVE_AD_UNIT_IDS.android) {
+    throw new Error(
+      "[app.config] Missing AdMob native adUnitId for Android. Set EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_ANDROID for beta/prod.",
+    );
+  }
+}
 
 // Package Android (identificador de la app para el build)
 const ANDROID_PACKAGE = "com.jiveronell28.mobile";
@@ -62,8 +98,11 @@ module.exports = {
     ],
     extra: {
       ...appJson.expo?.extra,
+      EXPO_PUBLIC_ENV: APP_ENV,
       EXPO_PUBLIC_SENTRY_DSN: dsn || undefined,
       EXPO_PUBLIC_API_URL: apiUrl || undefined,
+      EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_ANDROID: NATIVE_AD_UNIT_IDS.android || undefined,
+      EXPO_PUBLIC_ADMOB_NATIVE_AD_UNIT_ID_IOS: NATIVE_AD_UNIT_IDS.ios || undefined,
       // RevenueCat: usa EXPO_PUBLIC_REVENUECAT_API_KEY del .env (tu test key)
       EXPO_PUBLIC_REVENUECAT_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY?.trim() || undefined,
     },

@@ -16,7 +16,10 @@ const router = Router();
 router.get("/unread-count", authenticateToken, unreadCount);
 router.patch("/read-all", authenticateToken, markAllRead);
 router.delete("/read", authenticateToken, deleteAllRead);
-router.post("/test-trigger", authenticateToken, testTrigger);
+// Solo dev/staging: en producción no exponer endpoint de prueba.
+if (process.env.NODE_ENV !== "production" && process.env.ENABLE_TEST_ROUTES !== "false") {
+  router.post("/test-trigger", authenticateToken, testTrigger);
+}
 
 router.get("/", authenticateToken, list);
 router.patch("/:id/read", authenticateToken, markRead);
